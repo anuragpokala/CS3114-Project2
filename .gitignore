@@ -1,0 +1,25 @@
+# ---- Eclipse project metadata
+.project
+.classpath
+.settings/
+
+# ---- Build outputs / compiled classes
+bin/
+target/
+out/
+**/*.class
+
+# ---- OS/editor cruft
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.iml
+
+# ---- Logs & temp
+*.log
+*.tmp
+
+# ---- Java tooling
+.mvn/
+.gradle/
