@@ -2,6 +2,7 @@
 .project
 .classpath
 .settings/
+.uuid
 
 # ---- Build outputs / compiled classes
 bin/
