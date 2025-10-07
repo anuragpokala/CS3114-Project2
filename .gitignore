@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # ---- Eclipse project metadata
 .project
 .classpath
@@ -24,3 +25,11 @@ Thumbs.db
 # ---- Java tooling
 .mvn/
 .gradle/
+=======
+~*
+._*
+.TemporaryItems
+.DS_Store
+Thumbs.db
+>>>>>>> branch 'master' of https://web-cat.cs.vt.edu/Web-CAT/WebObjects/Web-CAT.woa/git/StudentProject/b82ff865-ca48-42f0-aa47-9b5325171c16
+/bin/

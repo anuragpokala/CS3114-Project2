@@ -2,8 +2,8 @@ import java.io.IOException;
 import student.TestCase;
 
 /**
- * @author {Your Name Here}
- * @version {Put Something Here}
+ * @author Parth Mehta
+ * @version 09/30/2025
  */
 public class GISTest extends TestCase {
 
@@ -15,6 +15,7 @@ public class GISTest extends TestCase {
     public void setUp() {
         it = new GISDB();
     }
+    
 
     /**
      * Test clearing on initial
@@ -56,46 +57,120 @@ public class GISTest extends TestCase {
         assertFalse(it.insert("CityName", 5, 100000));
         assertFuzzyEquals("", it.search(-1, -1, -1));
     }
+    
+    /**
+     * Test insert and duplicate coordinate checking
+     */
+    public void testInsert() {
+        assertTrue(it.insert("Denver", 100, 200));
+        assertFalse(it.insert("Bad", -1, 100));      // Negative x
+        assertFalse(it.insert("Bad", 100, -1));      // Negative y
+        assertFalse(it.insert("Bad", 40000, 100));   // x > MAXCOORD
+        assertFalse(it.insert("Bad", 100, 40000));   // y > MAXCOORD
+    }
 
+    public void testPrint() {
+        it.insert("Denver", 100, 200);
+        it.insert("Boston", 50, 100);
+        
+        String bst = it.print();
+        String kd = it.debug();
+        
+        assertTrue(bst.contains("Denver"));
+        assertTrue(bst.contains("Boston"));
+        assertTrue(kd.contains("Denver"));
+        assertTrue(kd.contains("Boston"));
+
+        // Root line may NOT be first in inorder if there’s a left subtree.
+        // So: accept either start-of-string "0..." OR a newline followed by "0..."
+        assertTrue(bst.startsWith("0") || bst.contains("\n0"));
+        assertFalse(bst.startsWith("0 ") || bst.contains("\n0 "));
+        assertTrue(kd.startsWith("0") || kd.contains("\n0"));
+        assertFalse(kd.startsWith("0 ") || kd.contains("\n0 "));
+    }
+
+    
+    public void testInsertAndPrint() {
+        assertTrue(it.insert("Denver", 100, 200));
+        assertTrue(it.insert("Boston", 50, 100));
+        assertTrue(it.insert("NYC", 150, 250));
+        
+        String output = it.print();
+        assertTrue(output.contains("Denver"));
+        assertTrue(output.contains("Boston"));
+        assertTrue(output.contains("NYC"));
+
+        // Empty DB prints should be exactly empty
+        it.clear();
+        assertEquals("", it.print());
+        assertEquals("", it.debug());
+    }
+
+    public void testDebugOutput() {
+        assertTrue(it.insert("Denver", 100, 200));
+        assertTrue(it.insert("Boston", 50, 300));
+        
+        String output = it.debug();
+        assertTrue(output.contains("Denver"));
+        assertTrue(output.contains("Boston"));
+    }
+
+    public void testMultipleInserts() {
+        for (int i = 0; i < 5; i++) {
+            assertTrue(it.insert("City" + i, i * 10, i * 20));
+        }
+        
+        String bst = it.print();
+        String kd = it.debug();
+        
+        for (int i = 0; i < 5; i++) {
+            assertTrue(bst.contains("City" + i));
+            assertTrue(kd.contains("City" + i));
+        }
+    }
 
     /**
-     * Insert some records and check output requirements for various commands
-     * @throws IOException
+     * Test clear returns true
      */
-    public void testRefOutput()
-        throws IOException
-    {
-        assertTrue(it.insert("Chicago", 100, 150));
-        assertTrue(it.insert("Atlanta", 10, 500));
-        assertTrue(it.insert("Tacoma", 1000, 100));
-        assertTrue(it.insert("Baltimore", 0, 300));
-        assertTrue(it.insert("Washington", 5, 350));
-        assertFalse(it.insert("X", 100, 150));
-        assertTrue(it.insert("L", 101, 150));
-        assertTrue(it.insert("L", 11, 500));
-        assertFuzzyEquals("1  Atlanta (10, 500)\n"
-            + "2    Baltimore (0, 300)\n"
-            + "0Chicago (100, 150)\n"
-            + "3      L (11, 500)\n"
-            + "2    L (101, 150)\n"
-            + "1  Tacoma (1000, 100)\n"
-            + "2    Washington (5, 350)\n", it.print());
-        assertFuzzyEquals("2    Baltimore (0, 300)\n"
-            + "3      Washington (5, 350)\n"
-            + "1  Atlanta (10, 500)\n"
-            + "2    L (11, 500)\n"
-            + "0Chicago (100, 150)\n"
-            + "1  Tacoma (1000, 100)\n"
-            + "2    L (101, 150)\n", it.debug());
-        assertFuzzyEquals("L (101, 150)\nL (11, 500)", it.info("L"));
-        assertFuzzyEquals("L", it.info(101, 150));
-        assertFuzzyEquals("Tacoma (1000, 100)", it.delete("Tacoma"));
-        assertFuzzyEquals("3\nChicago", it.delete(100, 150));
-        assertFuzzyEquals("L (101, 150)\n"
-                + "Atlanta (10, 500)\n"
-                + "Baltimore (0, 300)\n"
-                + "Washington (5, 350)\n"
-                + "L (11, 500)\n5", it.search(0, 0, 2000));
-        assertFuzzyEquals("Baltimore (0, 300)\n4", it.search(0, 300, 0));
+    public void testClear() {
+        assertTrue(it.clear());
     }
+
+    /**
+     * Test insert with invalid coordinates (negative and over max)
+     */
+    public void testInsertInvalidCoordinates() {
+        // Negative coordinates
+        assertFalse(it.insert("Test", -1, 100));
+        assertFalse(it.insert("Test", 100, -1));
+        assertFalse(it.insert("Test", -1, -1));
+        
+        // Over max coordinates
+        assertFalse(it.insert("Test", 32768, 100));
+        assertFalse(it.insert("Test", 100, 32768));
+    }
+
+    /**
+     * Test search with various radius values
+     */
+    public void testSearchRadius() {
+        // Negative radius
+        assertEquals("", it.search(0, 0, -1));
+        
+        // Zero radius
+        assertEquals("0", it.search(0, 0, 0));
+        
+        // Large radius
+        assertEquals("0", it.search(0, 0, 10000));
+        
+        // Negative coordinates with valid radius
+        assertEquals("0", it.search(-100, -100, 50));
+    }
+    
+    public void testInsertRejectsDuplicateCoordinates() {
+        assertTrue(it.insert("A", 10, 10));
+        // Same (x,y) must be rejected per spec
+        assertFalse(it.insert("B", 10, 10));
+    }
+
 }

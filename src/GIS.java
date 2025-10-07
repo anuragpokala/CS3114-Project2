@@ -2,8 +2,8 @@
 /**
  * Interface class for the GIS project
  *
- * @author CS3114/5040 Staff
- * @version Summer 2025
+ * @author Parth Mehta
+ * @version 10/04/25
  *
  */
 public interface GIS {

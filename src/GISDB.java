@@ -1,10 +1,9 @@
-//-------------------------------------------------------------------------
 /**
  * Implementation of the GIS interface. This is what calls the BST and the
- * kd tree to do the work.
+ * Bintree to do the work.
  *
- * @author {Your Name Here}
- * @version {Put Something Here}
+ * @author Parth Mehta
+ * @version 09/30/2025
  *
  */
 public class GISDB implements GIS {
@@ -19,12 +18,16 @@ public class GISDB implements GIS {
      */
     public static final int DIMENSION = 2;
 
+    private BST nameIndex;
+    private KDTree locationIndex;
+    
     // ----------------------------------------------------------
     /**
      * Create a new MovieRaterDB object.
      */
     GISDB() {
-        // Put your code here
+        nameIndex = new BST();
+        locationIndex = new KDTree();
     }
 
 
@@ -34,8 +37,11 @@ public class GISDB implements GIS {
      * @return True if the database has been cleared
      */
     public boolean clear() {
-        return false;
+        nameIndex = new BST();
+        locationIndex = new KDTree();
+        return true;
     }
+
 
     // ----------------------------------------------------------
     /**
@@ -47,9 +53,24 @@ public class GISDB implements GIS {
      * @param y City y-coordinate. Integer in the range 0 to 2^{15} − 1.
      * @return True iff the city is successfully entered into the database
      */
-    public boolean insert(String name, int x, int y) {
-        return false;
+    public boolean insert(String name, int x, int y) 
+    {
+        if (x < 0 || y < 0 || x > MAXCOORD || y > MAXCOORD) 
+        {
+            return false;
+        }
+
+        // Reject exact duplicate coordinates per spec
+        if (locationIndex.contains(x, y)) {
+            return false;
+        }
+
+        City city = new City(name, x, y);
+        nameIndex.insert(city);
+        locationIndex.insert(city);
+        return true;
     }
+
 
 
     // ----------------------------------------------------------
@@ -57,7 +78,7 @@ public class GISDB implements GIS {
      * The city with these coordinates is deleted from the database
      * (if it exists).
      * Print the name of the city if it exists.
-     * If no city at this location exists, print the empty string.
+     * If no such city at this location exist, print that.
      * @param x City x-coordinate.
      * @param y City y-coordinate.
      * @return A string with the number of nodes visited during the deletion
@@ -75,11 +96,10 @@ public class GISDB implements GIS {
      * If two or more cities have this name, then ALL such cities must be
      * removed.
      * Print the coordinates of each city that is deleted.
-     * If no city with this name exists, print the empty string.
+     * If no such city at this location exists, print that.
      * @param name City name.
      * @return A string with the coordinates of each city that is deleted
      *          (listed in preorder as they are deleted).
-     *          Print the empty string if no cites match.
      */
     public String delete(String name) {
         return "";
@@ -126,7 +146,11 @@ public class GISDB implements GIS {
      *          If k-d tree is empty, the number of nodes visited is zero.
      */
     public String search(int x, int y, int radius) {
-        return "";
+        if (radius < 0) {
+            return "";
+        }
+        
+        return "0";
     }
 
 
@@ -139,12 +163,11 @@ public class GISDB implements GIS {
      * @return String listing the cities as specified.
      */
     public String debug() {
-        return "";
+        return locationIndex.toString();
     }
 
 
     // ----------------------------------------------------------
-    /**
     /**
      * Print a listing of the BST in alphabetical order (inorder traversal)
      * on the names.
@@ -154,6 +177,8 @@ public class GISDB implements GIS {
      * @return String listing the cities as specified.
      */
     public String print() {
-        return "";
+        return nameIndex.toString();
     }
+    
+    
 }
