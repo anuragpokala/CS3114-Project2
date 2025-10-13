@@ -20,7 +20,7 @@ public class GISDB implements GIS {
 
     private BST nameIndex;
     private KDTree locationIndex;
-    
+
     // ----------------------------------------------------------
     /**
      * Create a new MovieRaterDB object.
@@ -34,6 +34,7 @@ public class GISDB implements GIS {
     // ----------------------------------------------------------
     /**
      * Reinitialize the database
+     * 
      * @return True if the database has been cleared
      */
     public boolean clear() {
@@ -48,15 +49,17 @@ public class GISDB implements GIS {
      * A city at coordinate (x, y) with name name is entered into the database.
      * It is an error to insert two cities with identical coordinates,
      * but not an error to insert two cities with identical names.
-     * @param name City name.
-     * @param x City x-coordinate. Integer in the range 0 to 2^{15} − 1.
-     * @param y City y-coordinate. Integer in the range 0 to 2^{15} − 1.
+     * 
+     * @param name
+     *            City name.
+     * @param x
+     *            City x-coordinate. Integer in the range 0 to 2^{15} − 1.
+     * @param y
+     *            City y-coordinate. Integer in the range 0 to 2^{15} − 1.
      * @return True iff the city is successfully entered into the database
      */
-    public boolean insert(String name, int x, int y) 
-    {
-        if (x < 0 || y < 0 || x > MAXCOORD || y > MAXCOORD) 
-        {
+    public boolean insert(String name, int x, int y) {
+        if (x < 0 || y < 0 || x > MAXCOORD || y > MAXCOORD) {
             return false;
         }
 
@@ -72,18 +75,20 @@ public class GISDB implements GIS {
     }
 
 
-
     // ----------------------------------------------------------
     /**
      * The city with these coordinates is deleted from the database
      * (if it exists).
      * Print the name of the city if it exists.
      * If no such city at this location exist, print that.
-     * @param x City x-coordinate.
-     * @param y City y-coordinate.
+     * 
+     * @param x
+     *            City x-coordinate.
+     * @param y
+     *            City y-coordinate.
      * @return A string with the number of nodes visited during the deletion
-     *          followed by the name of the city (this is blank if nothing
-     *          was deleted).
+     *         followed by the name of the city (this is blank if nothing
+     *         was deleted).
      */
     public String delete(int x, int y) {
         return "";
@@ -97,9 +102,11 @@ public class GISDB implements GIS {
      * removed.
      * Print the coordinates of each city that is deleted.
      * If no such city at this location exists, print that.
-     * @param name City name.
+     * 
+     * @param name
+     *            City name.
      * @return A string with the coordinates of each city that is deleted
-     *          (listed in preorder as they are deleted).
+     *         (listed in preorder as they are deleted).
      */
     public String delete(String name) {
         return "";
@@ -109,24 +116,40 @@ public class GISDB implements GIS {
     // ----------------------------------------------------------
     /**
      * Display the name of the city at coordinate (x, y) if it exists.
-     * @param x X coordinate.
-     * @param y Y coordinate.
+     * 
+     * @param x
+     *            X coordinate.
+     * @param y
+     *            Y coordinate.
      * @return The city name if there is such a city, empty otherwise
      */
     public String info(int x, int y) {
-        return "";
+        City c = locationIndex.find(x, y);
+        return (c == null) ? "" : c.getName();
     }
 
 
     // ----------------------------------------------------------
     /**
      * Display the coordinates of all cities with this name, if any exist.
-     * @param name The city name.
+     * 
+     * @param name
+     *            The city name.
      * @return String representing the list of cities and coordinates,
-     *          empty if there are none.
+     *         empty if there are none.
      */
     public String info(String name) {
-        return "";
+        String out = nameIndex.listCoordsByName(name);
+        if (out == null || out.isEmpty()) {
+            return "";
+        }
+        // Normalize line endings and remove any trailing newlines
+        out = out.replace("\r\n", "\n").replace("\r", "\n");
+        int end = out.length();
+        while (end > 0 && out.charAt(end - 1) == '\n') {
+            end--;
+        }
+        return (end == out.length()) ? out : out.substring(0, end);
     }
 
 
@@ -137,19 +160,23 @@ public class GISDB implements GIS {
      * listed.
      * This operation should be implemented so that as few nodes as possible in
      * the k-d tree are visited.
-     * @param x Search circle center: X coordinate. May be negative.
-     * @param y Search circle center: X coordinate. May be negative.
-     * @param radius Search radius, must be non-negative.
+     * 
+     * @param x
+     *            Search circle center: X coordinate. May be negative.
+     * @param y
+     *            Search circle center: X coordinate. May be negative.
+     * @param radius
+     *            Search radius, must be non-negative.
      * @return String listing the cities found (if any) , followed by the count
-     *          of the number of k-d tree nodes looked at during the
-     *          search process. If the radius is bad, return an empty string.
-     *          If k-d tree is empty, the number of nodes visited is zero.
+     *         of the number of k-d tree nodes looked at during the
+     *         search process. If the radius is bad, return an empty string.
+     *         If k-d tree is empty, the number of nodes visited is zero.
      */
     public String search(int x, int y, int radius) {
         if (radius < 0) {
             return "";
         }
-        
+
         return "0";
     }
 
@@ -160,6 +187,7 @@ public class GISDB implements GIS {
      * Each city should be printed on a separate line. Each line should start
      * with the level of the current node, then be indented by 2 * level spaces
      * for a node at a given level, counting the root as level 0.
+     * 
      * @return String listing the cities as specified.
      */
     public String debug() {
@@ -174,11 +202,11 @@ public class GISDB implements GIS {
      * Each city should be printed on a separate line. Each line should start
      * with the level of the current node, then be indented by 2 * level spaces
      * for a node at a given level, counting the root as level 0.
+     * 
      * @return String listing the cities as specified.
      */
     public String print() {
         return nameIndex.toString();
     }
-    
-    
+
 }
