@@ -23,7 +23,7 @@ public class GISDB implements GIS {
 
     // ----------------------------------------------------------
     /**
-     * Create a new MovieRaterDB object.
+     * Create a GISDB object.
      */
     GISDB() {
         nameIndex = new BST();
@@ -90,9 +90,19 @@ public class GISDB implements GIS {
      *         followed by the name of the city (this is blank if nothing
      *         was deleted).
      */
+    @Override
     public String delete(int x, int y) {
-        return "";
+        if (locationIndex.getSize() == 0) {
+            return "";
+        }
+        KDTree.KDDeleteResult res = locationIndex.deleteExact(x, y);
+        if (res.removed == null) {
+            return String.valueOf(res.visited);
+        }
+        nameIndex.removeCity(res.removed);
+        return res.visited + " " + res.removed.getName();
     }
+
 
 
     // ----------------------------------------------------------
@@ -109,7 +119,24 @@ public class GISDB implements GIS {
      *         (listed in preorder as they are deleted).
      */
     public String delete(String name) {
-        return "";
+        StringBuilder sb = new StringBuilder();
+        while (true) {
+            City next = nameIndex.findFirstByNamePreorder(name);
+            if (next == null) {
+                break;
+            }
+            KDTree.KDDeleteResult res = locationIndex.deleteExact(next.getX(), next.getY());
+            nameIndex.removeCity(next);
+            sb.append("(").append(next.getX()).append(", ").append(next.getY()).append(")\n");
+        }
+        int len = sb.length();
+        if (len == 0) {
+            return "";
+        }
+        if (sb.charAt(len - 1) == '\n') {
+            sb.setLength(len - 1);
+        }
+        return sb.toString();
     }
 
 
@@ -143,7 +170,6 @@ public class GISDB implements GIS {
         if (out == null || out.isEmpty()) {
             return "";
         }
-        // Normalize line endings and remove any trailing newlines
         out = out.replace("\r\n", "\n").replace("\r", "\n");
         int end = out.length();
         while (end > 0 && out.charAt(end - 1) == '\n') {
@@ -153,32 +179,38 @@ public class GISDB implements GIS {
     }
 
 
-    // ----------------------------------------------------------
+ // ----------------------------------------------------------
     /**
-     * All cities within radius distance from location (x, y) are listed.
-     * A city that is exactly radius distance from the query point should be
-     * listed.
-     * This operation should be implemented so that as few nodes as possible in
-     * the k-d tree are visited.
+     * All cities within radius distance from location (x, y) are listed,
+     * followed by the number of k-d tree nodes visited during the search.
+     * If the radius is negative, returns the empty string. If the tree is
+     * empty, returns "0".
      * 
-     * @param x
-     *            Search circle center: X coordinate. May be negative.
-     * @param y
-     *            Search circle center: X coordinate. May be negative.
-     * @param radius
-     *            Search radius, must be non-negative.
-     * @return String listing the cities found (if any) , followed by the count
-     *         of the number of k-d tree nodes looked at during the
-     *         search process. If the radius is bad, return an empty string.
-     *         If k-d tree is empty, the number of nodes visited is zero.
+     * Cities on the exact circle boundary are included.
+     * 
+     * @param x Search circle center X.
+     * @param y Search circle center Y.
+     * @param radius Non-negative radius.
+     * @return Listing of cities (each on its own line) followed by the
+     *         visited count; or "0" if none and tree empty; or "" if radius
+     *         is invalid.
      */
     public String search(int x, int y, int radius) {
         if (radius < 0) {
             return "";
         }
+        if (locationIndex.getSize() == 0) {
+            return "0";
+        }
 
-        return "0";
+        KDTree.KDSearchResult res = locationIndex.rangeSearch(x, y, radius);
+        String hits = res.listing();
+        if (hits.isEmpty()) {
+            return String.valueOf(res.visited);
+        }
+        return hits + "\n" + res.visited;
     }
+
 
 
     // ----------------------------------------------------------
