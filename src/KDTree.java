@@ -1,450 +1,296 @@
-// Stores City Location Coordinates in a KD Tree
+import java.util.Objects;
+import java.util.function.BiConsumer;
+
 /**
- * KD Tree Class
- * 
- * @author Parth Mehta
- * @version 10/3/2025
+ * 2D kd-tree storing City records by coordinates.
+ * - Insert rejects duplicate (x,y). Ties in split key go RIGHT.
+ * - Delete replaces with the min (in current split dimension) from the right subtree,
+ *   using preorder tie preference (first found).
+ * - Range search uses dx^2 + dy^2 with rectangle pruning and visit counting.
  */
-public class KDTree {
-    private KDNode root;
+class KDTree {
+
+    // ---- node ----
+    private static final class Node {
+        City e;
+        Node left, right;
+        Node(City e) { this.e = e; }
+    }
+
+    // ---- fields ----
+    private Node root;
     private int size;
 
-    // Subclass to build nodes within KDTree
-    private class KDNode {
-        private City city;
-        private KDNode left;
-        private KDNode right;
+    // ---- simple ops ----
+    public void clear() { root = null; size = 0; }
+    public boolean isEmpty() { return size == 0; }
+    public int size() { return size; }
 
-        // Initializes new nodes
-        public KDNode(City city) {
-            this.city = city;
-            this.left = null;
-            this.right = null;
-        }
-    }
-
-    /**
-     * Construct an empty 2D kd-tree of {@link City} records.
-     */
-    public KDTree() {
-        root = null;
-        size = 0;
-    }
-
-    /**
-     * Insert a {@link City} into the kd-tree. The discriminator alternates
-     * (even depth: X, odd depth: Y), and ties go to the right.
-     *
-     * @param cityToInsert
-     *            the city record to insert
-     */
-    public void insert(City cityToInsert) {
-        root = insertHelperMethod(root, cityToInsert, 0);
-        size++;
-    }
-
-    /**
-     * Recursive insertion helper alternating X/Y discriminators and sending
-     * equal-valued keys to the right subtree.
-     *
-     * @param node
-     *            current subtree root
-     * @param city
-     *            city to insert
-     * @param depth
-     *            current depth (root = 0)
-     * @return updated subtree root
-     */
-    private KDNode insertHelperMethod(KDNode node, City city, int depth) {
-        if (node == null) {
-            return new KDNode(city);
-        }
-        if (depth % 2 == 0) {
-            if (city.getX() < node.city.getX()) {
-                node.left = insertHelperMethod(node.left, city, depth + 1);
-            }
-            else {
-                node.right = insertHelperMethod(node.right, city, depth + 1);
-            }
-        }
-        else {
-            if (city.getY() < node.city.getY()) {
-                node.left = insertHelperMethod(node.left, city, depth + 1);
-            }
-            else {
-                node.right = insertHelperMethod(node.right, city, depth + 1);
-            }
-        }
-        return node;
-    }
-
-    /**
-     * Return the number of nodes currently stored in this kd-tree.
-     *
-     * @return the size of the kd-tree
-     */
-    public int getSize() {
-        return size;
-    }
-
-    /**
-     * Inorder listing of the kd-tree with level/indentation as specified.
-     * The root has no indentation.
-     *
-     * @return the formatted inorder traversal string (empty if the tree is empty)
-     */
-    public String toString() {
-        StringBuilder result = new StringBuilder();
-        toStringHelper(root, 0, result);
-        return result.toString();
-    }
-
-    private void toStringHelper(KDNode node, int depth, StringBuilder result) {
-        if (node == null) {
-            return;
-        }
-        toStringHelper(node.left, depth + 1, result);
-        result.append(depth);
-        for (int i = 0; i < depth * 2; i++) {
-            result.append(" ");
-        }
-        result.append(node.city.toString());
-        result.append("\n");
-        toStringHelper(node.right, depth + 1, result);
-    }
-
-    /**
-     * Determine whether the kd-tree contains an exact coordinate.
-     *
-     * @param x
-     *            x-coordinate to test
-     * @param y
-     *            y-coordinate to test
-     * @return {@code true} if a city at {@code (x, y)} exists; else {@code false}
-     */
-    public boolean contains(int x, int y) {
-        return containsHelper(root, x, y, 0);
-    }
-
-    private boolean containsHelper(KDNode node, int x, int y, int depth) {
-        if (node == null) {
-            return false;
-        }
-        if (node.city.getX() == x && node.city.getY() == y) {
+    /** Insert: reject duplicate (x,y); ties in split key go RIGHT. */
+    public boolean insert(String name, int x, int y) {
+        Objects.requireNonNull(name, "name");
+        City rec = new City(name, x, y);
+        Result r = insertRec(root, rec, 0);
+        if (r.added) {
+            root = r.newRoot;
+            size = size + 1;
             return true;
         }
-        if (depth % 2 == 0) {
-            if (x < node.city.getX()) {
-                return containsHelper(node.left, x, y, depth + 1);
-            }
-            else {
-                return containsHelper(node.right, x, y, depth + 1);
-            }
+        return false;
+    }
+
+    // (optional convenience; not used by GISDB but harmless)
+    public boolean insert(City c) {
+        return insert(c.getName(), c.getX(), c.getY());
+    }
+
+    private static final class Result {
+        final Node newRoot;
+        final boolean added;
+        Result(Node n, boolean a) { newRoot = n; added = a; }
+    }
+
+    private Result insertRec(Node n, City e, int depth) {
+        if (n == null) return new Result(new Node(e), true);
+        if (e.getX() == n.e.getX() && e.getY() == n.e.getY()) {
+            return new Result(n, false);
         }
-        else {
-            if (y < node.city.getY()) {
-                return containsHelper(node.left, x, y, depth + 1);
-            }
-            else {
-                return containsHelper(node.right, x, y, depth + 1);
-            }
+        boolean splitOnX = (depth % 2 == 0);
+        int cmp = splitOnX
+            ? Integer.compare(e.getX(), n.e.getX())
+            : Integer.compare(e.getY(), n.e.getY());
+        if (cmp < 0) {
+            Result leftRes = insertRec(n.left, e, depth + 1);
+            n.left = leftRes.newRoot;
+            return new Result(n, leftRes.added);
+        } else {
+            Result rightRes = insertRec(n.right, e, depth + 1);
+            n.right = rightRes.newRoot;
+            return new Result(n, rightRes.added);
         }
     }
 
-    // ---- Added: exact lookup that returns the City at (x, y) or null
-
-    /**
-     * Locate and return the city stored at the exact coordinate
-     * {@code (x, y)}, or {@code null} if the coordinate is not present in
-     * the tree. The search alternates discriminators by depth (even: X,
-     * odd: Y) and follows the project rule that ties go to the right.
-     *
-     * @param x
-     *            target x-coordinate
-     * @param y
-     *            target y-coordinate
-     * @return the {@link City} at {@code (x, y)} if present; otherwise
-     *         {@code null}
-     */
-    public City find(int x, int y) {
-        return findHelper(root, x, y, 0);
+    // ---- traversals used by GISDB print/debug logic ----
+    public void inorderWithLevels(BiConsumer<Integer, City> visit) {
+        inorderRec(root, 0, visit);
     }
 
-    /**
-     * Recursive helper for {@link #find(int, int)} alternating X/Y splits
-     * and respecting the tie-to-right policy.
-     *
-     * @param node
-     *            current node
-     * @param x
-     *            target x-coordinate
-     * @param y
-     *            target y-coordinate
-     * @param depth
-     *            current depth
-     * @return matching {@link City} or {@code null}
-     */
-    private City findHelper(KDNode node, int x, int y, int depth) {
-        if (node == null) {
-            return null;
-        }
-        if (node.city.getX() == x && node.city.getY() == y) {
-            return node.city;
-        }
-        if (depth % 2 == 0) {
-            if (x < node.city.getX()) {
-                return findHelper(node.left, x, y, depth + 1);
-            }
-            else {
-                return findHelper(node.right, x, y, depth + 1);
-            }
-        }
-        else {
-            if (y < node.city.getY()) {
-                return findHelper(node.left, x, y, depth + 1);
-            }
-            else {
-                return findHelper(node.right, x, y, depth + 1);
-            }
-        }
+    private void inorderRec(Node n, int level, BiConsumer<Integer, City> visit) {
+        if (n == null) return;
+        inorderRec(n.left, level + 1, visit);
+        visit.accept(level, n.e);
+        inorderRec(n.right, level + 1, visit);
     }
 
-    /**
-     * Result container for kd-tree coordinate deletion.
-     */
-    public static final class KDDeleteResult {
-        /** Nodes visited during the delete process. */
+    public void preorderWithLevels(BiConsumer<Integer, City> visit) {
+        preorderRec(root, 0, visit);
+    }
+
+    private void preorderRec(Node n, int level, BiConsumer<Integer, City> visit) {
+        if (n == null) return;
+        visit.accept(level, n.e);
+        preorderRec(n.left, level + 1, visit);
+        preorderRec(n.right, level + 1, visit);
+    }
+
+    // ---------- Exact find, Delete, Range Search ----------
+
+    public static final class DeleteOutcome {
         public final int visited;
-        /** The city that was removed, or {@code null} if none. */
-        public final City removed;
-
-        /**
-         * Create a new deletion result.
-         *
-         * @param visited
-         *            nodes visited count
-         * @param removed
-         *            city removed or {@code null}
-         */
-        public KDDeleteResult(int visited, City removed) {
+        public final City entry;
+        public DeleteOutcome(int visited, City entry) {
             this.visited = visited;
-            this.removed = removed;
+            this.entry = entry;
+        }
+    }
+
+    private static final class Counter { int count = 0; }
+
+    private static final class DelRes {
+        final Node newRoot;
+        final City removed;
+        DelRes(Node r, City e) { this.newRoot = r; this.removed = e; }
+    }
+
+    /** Find exact (x,y). Returns the City or null. */
+    public City findExact(int x, int y) {
+        Node n = root;
+        int depth = 0;
+        while (n != null) {
+            if (n.e.getX() == x && n.e.getY() == y) return n.e;
+            boolean splitOnX = (depth % 2 == 0);
+            if (splitOnX) {
+                n = (x < n.e.getX()) ? n.left : n.right;
+            } else {
+                n = (y < n.e.getY()) ? n.left : n.right;
+            }
+            depth = depth + 1;
+        }
+        return null;
+    }
+
+    /**
+     * Delete (x,y). If tree empty, visited=0 and entry=null.
+     */
+    public DeleteOutcome delete(int x, int y) {
+        if (root == null) return new DeleteOutcome(0, null);
+        Counter c = new Counter();
+        DelRes r = deleteRec(root, x, y, 0, c);
+        root = r.newRoot;
+        if (r.removed != null && size > 0) size = size - 1;
+        return new DeleteOutcome(c.count, r.removed);
+    }
+
+    private DelRes deleteRec(Node n, int x, int y, int depth, Counter c) {
+        if (n == null) return new DelRes(null, null);
+        c.count = c.count + 1;
+
+        if (n.e.getX() == x && n.e.getY() == y) {
+            City removed = n.e;
+            if (n.right != null) {
+                int splitDim = depth % 2; // 0:X, 1:Y
+                Node minNode = findMin(n.right, depth + 1, splitDim, c);
+                n.e = minNode.e;
+                DelRes rr = deleteRec(n.right, minNode.e.getX(), minNode.e.getY(), depth + 1, c);
+                n.right = rr.newRoot;
+                return new DelRes(n, removed);
+            } else if (n.left != null) {
+                int splitDim = depth % 2;
+                Node minNode = findMin(n.left, depth + 1, splitDim, c);
+                n.e = minNode.e;
+                DelRes rl = deleteRec(n.left, minNode.e.getX(), minNode.e.getY(), depth + 1, c);
+                n.left = rl.newRoot;
+                if (n.right == null) { // preserve original structure tweak
+                    n.right = n.left;
+                    n.left = null;
+                }
+                return new DelRes(n, removed);
+            } else {
+                return new DelRes(null, removed);
+            }
+        } else {
+            boolean splitOnX = (depth % 2 == 0);
+            int cmp = splitOnX ? Integer.compare(x, n.e.getX())
+                               : Integer.compare(y, n.e.getY());
+            if (cmp < 0) {
+                DelRes dl = deleteRec(n.left, x, y, depth + 1, c);
+                n.left = dl.newRoot;
+                return new DelRes(n, dl.removed);
+            } else {
+                DelRes dr = deleteRec(n.right, x, y, depth + 1, c);
+                n.right = dr.newRoot;
+                return new DelRes(n, dr.removed);
+            }
         }
     }
 
     /**
-     * Delete the city at the exact coordinate {@code (x, y)} if present.
-     * Deletion follows the kd-tree rule: replace with the minimum (in the
-     * current discriminator) from the right subtree when possible; otherwise
-     * replace with the minimum from the left subtree. Among equal minima,
-     * choose the one that appears first in a preorder traversal.
-     *
-     * @param x
-     *            x-coordinate of the target
-     * @param y
-     *            y-coordinate of the target
-     * @return {@link KDDeleteResult} containing nodes visited and the removed
-     *         {@link City} (or {@code null} if not found)
+     * Preorder-min in targetDim (0=x,1=y) with preorder tie preference; counts visits.
      */
-    public KDDeleteResult deleteExact(int x, int y) {
-        int[] visited = new int[] { 0 };
-        Wrapper w = new Wrapper();
-        root = deleteRec(root, x, y, 0, visited, w);
-        return new KDDeleteResult(visited[0], w.removed);
-    }
+    private Node findMin(Node n, int depth, int targetDim, Counter c) {
+        if (n == null) return null;
+        c.count = c.count + 1;
 
-    private static final class Wrapper {
-        City removed;
-    }
+        boolean splitOnX = (depth % 2 == 0);
+        int splitDim = splitOnX ? 0 : 1;
 
-    private KDNode deleteRec(
-        KDNode node,
-        int x,
-        int y,
-        int depth,
-        int[] visited,
-        Wrapper out) {
-        if (node == null) {
-            return null;
+        Node best = n; // preorder preference
+        Node l = findMin(n.left, depth + 1, targetDim, c);
+        if (isBetterDim(l, best, targetDim)) best = l;
+
+        if (splitDim != targetDim) {
+            Node r = findMin(n.right, depth + 1, targetDim, c);
+            if (isBetterDim(r, best, targetDim)) best = r;
         }
-        visited[0]++;
-
-        if (node.city.getX() == x && node.city.getY() == y) {
-            out.removed = node.city;
-            if (node.right != null) {
-                City rep = findMinByDim(node.right, depth % 2, depth + 1, visited);
-                node.city = rep;
-                node.right = deleteRec(node.right, rep.getX(), rep.getY(), depth + 1, visited, new Wrapper());
-                return node;
-            }
-            else if (node.left != null) {
-                City rep = findMinByDim(node.left, depth % 2, depth + 1, visited);
-                node.city = rep;
-                node.left = deleteRec(node.left, rep.getX(), rep.getY(), depth + 1, visited, new Wrapper());
-                return node;
-            }
-            else {
-                size--;
-                return null;
-            }
-        }
-
-        if (depth % 2 == 0) {
-            if (x < node.city.getX()) {
-                node.left = deleteRec(node.left, x, y, depth + 1, visited, out);
-            }
-            else {
-                node.right = deleteRec(node.right, x, y, depth + 1, visited, out);
-            }
-        }
-        else {
-            if (y < node.city.getY()) {
-                node.left = deleteRec(node.left, x, y, depth + 1, visited, out);
-            }
-            else {
-                node.right = deleteRec(node.right, x, y, depth + 1, visited, out);
-            }
-        }
-        return node;
-    }
-
-    /**
-     * Find the minimum (by discriminator {@code dim}, where 0 = X and 1 = Y)
-     * within a subtree. If multiple records share the same minimum value,
-     * return the one that appears first in a preorder traversal (root, left,
-     * right).
-     *
-     * @param node
-     *            subtree root
-     * @param dim
-     *            discriminator dimension (0 for X, 1 for Y)
-     * @param depth
-     *            current depth
-     * @param visited
-     *            node-visit counter to update
-     * @return the {@link City} with the minimum value in dimension {@code dim}
-     */
-    private City findMinByDim(KDNode node, int dim, int depth, int[] visited) {
-        if (node == null) {
-            return null;
-        }
-        visited[0]++;
-
-        City best = node.city;
-
-        if (depth % 2 == dim) {
-            City leftMin = findMinByDim(node.left, dim, depth + 1, visited);
-            if (isLessInDim(leftMin, best, dim)) {
-                best = leftMin;
-            }
-        }
-        else {
-            City leftMin = findMinByDim(node.left, dim, depth + 1, visited);
-            if (isLessInDim(leftMin, best, dim)) {
-                best = leftMin;
-            }
-            City rightMin = findMinByDim(node.right, dim, depth + 1, visited);
-            if (isLessInDim(rightMin, best, dim)) {
-                best = rightMin;
-            }
-        }
-
         return best;
     }
 
-    /**
-     * Compare two cities by a dimension.
-     *
-     * @param a
-     *            left operand (may be {@code null})
-     * @param b
-     *            right operand (may be {@code null})
-     * @param dim
-     *            0 for X, 1 for Y
-     * @return {@code true} if {@code a} is strictly less than {@code b} in {@code dim}
-     */
-    private boolean isLessInDim(City a, City b, int dim) {
-        if (a == null || b == null) {
-            return a != null && b == null;
-        }
-        int va = (dim == 0) ? a.getX() : a.getY();
-        int vb = (dim == 0) ? b.getX() : b.getY();
-        return va < vb;
+    private boolean isBetterDim(Node cand, Node curr, int dim) {
+        if (cand == null) return false;
+        if (curr == null) return true;
+        int cv = (dim == 0) ? cand.e.getX() : cand.e.getY();
+        int bv = (dim == 0) ? curr.e.getX() : curr.e.getY();
+        if (cv < bv) return true;
+        if (cv > bv) return false;
+        return false; // equal → keep curr (preorder preference)
     }
-    
 
-    /**
-     * Encapsulates the result of a KD radius search: the number of nodes
-     * visited and a lazily-built listing of matching cities.
-     */
-    public static final class KDSearchResult {
-        /** Number of tree nodes visited during the search. */
-        public int visited;
-        private final StringBuilder sb = new StringBuilder();
+    // -------- Range search (circle) with pruning and visit counting ----------
 
-        /** Append a matching city to the result listing. */
-        void add(City c) {
-            sb.append(c.toString()).append('\n');
-        }
-
-        /**
-         * Finalize the listing, trimming any trailing newline.
-         * 
-         * @return The formatted list of matching cities (possibly empty).
-         */
-        public String listing() {
-            if (sb.length() > 0 && sb.charAt(sb.length() - 1) == '\n') {
-                sb.setLength(sb.length() - 1);
-            }
-            return sb.toString();
+    public static final class SearchOutcome {
+        public final int visited;
+        public final String listing;
+        public SearchOutcome(int visited, String listing) {
+            this.visited = visited;
+            this.listing = listing;
         }
     }
 
-    /**
-     * Perform a radius search centered at (cx, cy) with radius r, counting
-     * how many kd-tree nodes are examined. Points on the circle boundary
-     * are included. Border pruning honors the tie-to-right policy.
-     * 
-     * @param cx Center X
-     * @param cy Center Y
-     * @param r  Non-negative radius
-     * @return   The search result (hits + visited count)
-     */
-    public KDSearchResult rangeSearch(int cx, int cy, int r) {
-        KDSearchResult res = new KDSearchResult();
-        rangeSearchHelper(root, cx, cy, r, 0, res);
-        return res;
+    public SearchOutcome rangeSearch(int cx, int cy, int radius) {
+        if (root == null) return new SearchOutcome(0, "");
+        StringBuilder sb = new StringBuilder();
+        Counter c = new Counter();
+        long r2 = (long)radius * (long)radius;
+        rangeRec(root, 0,
+                 Integer.MIN_VALUE, Integer.MIN_VALUE,
+                 Integer.MAX_VALUE, Integer.MAX_VALUE,
+                 cx, cy, r2, sb, c);
+        return new SearchOutcome(c.count, sb.toString());
     }
 
-    private void rangeSearchHelper(KDNode node, int cx, int cy, int r, int depth,
-        KDSearchResult res) {
-        if (node == null) {
-            return;
-        }
-        res.visited++;
+    private void rangeRec(Node n, int depth,
+                          int minX, int minY, int maxX, int maxY,
+                          int cx, int cy, long r2,
+                          StringBuilder out, Counter c) {
+        if (n == null) return;
+        c.count = c.count + 1;
 
-        int dx = node.city.getX() - cx;
-        int dy = node.city.getY() - cy;
-        if ((long)dx * dx + (long)dy * dy <= (long)r * r) {
-            res.add(node.city);
+        long dx = (long)n.e.getX() - (long)cx;
+        long dy = (long)n.e.getY() - (long)cy;
+        long d2 = dx * dx + dy * dy;
+        if (d2 <= r2) {
+            out.append(n.e.getName()).append(" (")
+               .append(n.e.getX()).append(", ").append(n.e.getY())
+               .append(")").append("\n");
         }
 
-        boolean even = (depth % 2) == 0;
-        if (even) {
-            if (cx - r < node.city.getX()) {
-                rangeSearchHelper(node.left, cx, cy, r, depth + 1, res);
+        boolean splitOnX = (depth % 2 == 0);
+        if (splitOnX) {
+            int split = n.e.getX();
+            int leftMaxX = split - 1;
+            int rightMinX = split;
+            if (rectIntersectsCircle(minX, minY, leftMaxX, maxY, cx, cy, r2)) {
+                rangeRec(n.left, depth + 1, minX, minY, leftMaxX, maxY, cx, cy, r2, out, c);
             }
-            if (cx + r >= node.city.getX()) {
-                rangeSearchHelper(node.right, cx, cy, r, depth + 1, res);
+            if (rectIntersectsCircle(rightMinX, minY, maxX, maxY, cx, cy, r2)) {
+                rangeRec(n.right, depth + 1, rightMinX, minY, maxX, maxY, cx, cy, r2, out, c);
+            }
+        } else {
+            int split = n.e.getY();
+            int lowerMaxY = split - 1;
+            int upperMinY = split;
+            if (rectIntersectsCircle(minX, minY, maxX, lowerMaxY, cx, cy, r2)) {
+                rangeRec(n.left, depth + 1, minX, minY, maxX, lowerMaxY, cx, cy, r2, out, c);
+            }
+            if (rectIntersectsCircle(minX, upperMinY, maxX, maxY, cx, cy, r2)) {
+                rangeRec(n.right, depth + 1, minX, upperMinY, maxX, maxY, cx, cy, r2, out, c);
             }
         }
-        else {
-            if (cy - r < node.city.getY()) {
-                rangeSearchHelper(node.left, cx, cy, r, depth + 1, res);
-            }
-            if (cy + r >= node.city.getY()) {
-                rangeSearchHelper(node.right, cx, cy, r, depth + 1, res);
-            }
-        }
+    }
+
+    private boolean rectIntersectsCircle(int minX, int minY, int maxX, int maxY,
+                                         int cx, int cy, long r2) {
+        int nx = clamp(cx, minX, maxX);
+        int ny = clamp(cy, minY, maxY);
+        long dx = (long)cx - (long)nx;
+        long dy = (long)cy - (long)ny;
+        long d2 = dx * dx + dy * dy;
+        return d2 <= r2;
+    }
+
+    private int clamp(int v, int lo, int hi) {
+        if (v < lo) return lo;
+        if (v > hi) return hi;
+        return v;
     }
 }

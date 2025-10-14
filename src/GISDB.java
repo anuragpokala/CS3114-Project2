@@ -1,244 +1,172 @@
 /**
- * Implementation of the GIS interface. This is what calls the BST and the
- * Bintree to do the work.
- *
- * @author Parth Mehta
- * @version 09/30/2025
- *
+ * GIS database façade that coordinates BST (by name) and KDTree (by coordinates).
+ * - insert: rejects duplicate coordinates; allows duplicate names
+ * - delete(x,y): returns visit count + name or "" if not found
+ * - delete(name): removes ALL with that name; outputs coordinates per deletion
+ * - info(x,y): name at coordinate or ""
+ * - info(name): list of coordinates (inorder by name-BST) or ""
+ * - search(x,y,r): circle range listing then visit count; "" on bad r
+ * - debug(): inorder of kd tree (level + 2*level spaces + "name x y")
+ * - print(): inorder of BST by name (level + 2*level spaces + "name (x, y)")
  */
 public class GISDB implements GIS {
 
-    /**
-     * The maximum allowable value for a coordinate
-     */
+    private final BST<City> byName;
+    private final KDTree byCoord;
+
+    /** The maximum allowable coordinate value. */
     public static final int MAXCOORD = 32767;
 
-    /**
-     * Dimension of the points stored in the tree
-     */
+    /** Number of coordinate dimensions. Kept for parity with spec. */
     public static final int DIMENSION = 2;
 
-    private BST nameIndex;
-    private KDTree locationIndex;
-
-    // ----------------------------------------------------------
-    /**
-     * Create a GISDB object.
-     */
     GISDB() {
-        nameIndex = new BST();
-        locationIndex = new KDTree();
+        this.byName = new BST<>();
+        this.byCoord = new KDTree();
     }
 
-
-    // ----------------------------------------------------------
-    /**
-     * Reinitialize the database
-     * 
-     * @return True if the database has been cleared
-     */
+    /** Reinitialize the database. */
     public boolean clear() {
-        nameIndex = new BST();
-        locationIndex = new KDTree();
+        byName.clear();
+        byCoord.clear();
         return true;
     }
 
-
-    // ----------------------------------------------------------
     /**
-     * A city at coordinate (x, y) with name name is entered into the database.
-     * It is an error to insert two cities with identical coordinates,
-     * but not an error to insert two cities with identical names.
-     * 
-     * @param name
-     *            City name.
-     * @param x
-     *            City x-coordinate. Integer in the range 0 to 2^{15} − 1.
-     * @param y
-     *            City y-coordinate. Integer in the range 0 to 2^{15} − 1.
-     * @return True iff the city is successfully entered into the database
+     * Insert a city. Duplicate coordinates are rejected; duplicate names allowed.
      */
     public boolean insert(String name, int x, int y) {
-        if (x < 0 || y < 0 || x > MAXCOORD || y > MAXCOORD) {
+        if (name == null || x < 0 || y < 0 || x > MAXCOORD || y > MAXCOORD) {
             return false;
         }
-
-        // Reject exact duplicate coordinates per spec
-        if (locationIndex.contains(x, y)) {
-            return false;
+        boolean added = byCoord.insert(name, x, y);
+        if (added) {
+            byName.insert(new City(name, x, y));
         }
-
-        City city = new City(name, x, y);
-        nameIndex.insert(city);
-        locationIndex.insert(city);
-        return true;
+        return added;
     }
 
-
-    // ----------------------------------------------------------
     /**
-     * The city with these coordinates is deleted from the database
-     * (if it exists).
-     * Print the name of the city if it exists.
-     * If no such city at this location exist, print that.
-     * 
-     * @param x
-     *            City x-coordinate.
-     * @param y
-     *            City y-coordinate.
-     * @return A string with the number of nodes visited during the deletion
-     *         followed by the name of the city (this is blank if nothing
-     *         was deleted).
+     * Delete by coordinate. Returns "visited\\nname" if found, else "".
+     * For empty kd-tree, returns "" (visited not printed).
      */
-    @Override
     public String delete(int x, int y) {
-        if (locationIndex.getSize() == 0) {
-            return "";
-        }
-        KDTree.KDDeleteResult res = locationIndex.deleteExact(x, y);
-        if (res.removed == null) {
-            return String.valueOf(res.visited);
-        }
-        nameIndex.removeCity(res.removed);
-        return res.visited + " " + res.removed.getName();
+        if (byCoord.isEmpty()) return "";
+        KDTree.DeleteOutcome out = byCoord.delete(x, y);
+        if (out.entry == null) return "";
+        // remove exact (name,x,y) from BST using equals-left semantics
+        byName.removeMatching(new City(out.entry.getName(), out.entry.getX(), out.entry.getY()),
+                c -> c.getX() == out.entry.getX() && c.getY() == out.entry.getY()
+                        && c.getName().equals(out.entry.getName()));
+        StringBuilder sb = new StringBuilder();
+        sb.append(out.visited).append("\n").append(out.entry.getName());
+        return sb.toString();
     }
 
-
-
-    // ----------------------------------------------------------
     /**
-     * The city with this name is deleted from the database (if it exists).
-     * If two or more cities have this name, then ALL such cities must be
-     * removed.
-     * Print the coordinates of each city that is deleted.
-     * If no such city at this location exists, print that.
-     * 
-     * @param name
-     *            City name.
-     * @return A string with the coordinates of each city that is deleted
-     *         (listed in preorder as they are deleted).
+     * Delete ALL cities with this name. Outputs each coordinate line, preorder tie preference via KDTree.
      */
     public String delete(String name) {
+        if (name == null) return "";
+
         StringBuilder sb = new StringBuilder();
+
         while (true) {
-            City next = nameIndex.findFirstByNamePreorder(name);
-            if (next == null) {
-                break;
+            // First matching entry in current PREORDER (preorder tie preference)
+            final City[] first = new City[1];
+            byCoord.preorderWithLevels((lvl, e) -> {
+                if (first[0] == null && e.getName().equals(name)) {
+                    first[0] = e;
+                }
+            });
+            if (first[0] == null) break;
+
+            KDTree.DeleteOutcome out = byCoord.delete(first[0].getX(), first[0].getY());
+            if (out.entry != null) {
+                // remove the exact triple from the BST
+                byName.removeMatching(new City(out.entry.getName(), out.entry.getX(), out.entry.getY()),
+                        c -> c.getX() == out.entry.getX() && c.getY() == out.entry.getY()
+                                && c.getName().equals(out.entry.getName()));
+                sb.append(out.entry.getName()).append(" (")
+                  .append(out.entry.getX()).append(", ").append(out.entry.getY())
+                  .append(")").append("\n");
             }
-            KDTree.KDDeleteResult res = locationIndex.deleteExact(next.getX(), next.getY());
-            nameIndex.removeCity(next);
-            sb.append("(").append(next.getX()).append(", ").append(next.getY()).append(")\n");
-        }
-        int len = sb.length();
-        if (len == 0) {
-            return "";
-        }
-        if (sb.charAt(len - 1) == '\n') {
-            sb.setLength(len - 1);
         }
         return sb.toString();
     }
 
-
-    // ----------------------------------------------------------
-    /**
-     * Display the name of the city at coordinate (x, y) if it exists.
-     * 
-     * @param x
-     *            X coordinate.
-     * @param y
-     *            Y coordinate.
-     * @return The city name if there is such a city, empty otherwise
-     */
+    /** Name at coordinate or empty string. */
     public String info(int x, int y) {
-        City c = locationIndex.find(x, y);
-        return (c == null) ? "" : c.getName();
+        City e = byCoord.findExact(x, y);
+        return (e != null) ? e.getName() : "";
     }
 
-
-    // ----------------------------------------------------------
     /**
-     * Display the coordinates of all cities with this name, if any exist.
-     * 
-     * @param name
-     *            The city name.
-     * @return String representing the list of cities and coordinates,
-     *         empty if there are none.
+     * Coordinates for all cities with the given name, in BST inorder (equal names appear on the LEFT chain first).
+     * Returns empty string when none match.
      */
     public String info(String name) {
-        String out = nameIndex.listCoordsByName(name);
-        if (out == null || out.isEmpty()) {
-            return "";
+        if (name == null) return "";
+        final int[] count = new int[] { 0 };
+        byName.inorderWithLevels((lvl, c) -> {
+            if (c.getName().equals(name)) count[0] = count[0] + 1;
+        });
+        if (count[0] == 0) return "";
+
+        int[] xs = new int[count[0]];
+        int[] ys = new int[count[0]];
+        final int[] idx = new int[] { 0 };
+        byName.inorderWithLevels((lvl, c) -> {
+            if (c.getName().equals(name)) {
+                xs[idx[0]] = c.getX();
+                ys[idx[0]] = c.getY();
+                idx[0] = idx[0] + 1;
+            }
+        });
+
+        StringBuilder sb = new StringBuilder();
+        for (int i = xs.length - 1; i >= 0; i = i - 1) {
+            sb.append(name).append(" (").append(xs[i]).append(", ").append(ys[i]).append(")").append("\n");
         }
-        out = out.replace("\r\n", "\n").replace("\r", "\n");
-        int end = out.length();
-        while (end > 0 && out.charAt(end - 1) == '\n') {
-            end--;
-        }
-        return (end == out.length()) ? out : out.substring(0, end);
+        return sb.toString();
     }
 
-
- // ----------------------------------------------------------
     /**
-     * All cities within radius distance from location (x, y) are listed,
-     * followed by the number of k-d tree nodes visited during the search.
-     * If the radius is negative, returns the empty string. If the tree is
-     * empty, returns "0".
-     * 
-     * Cities on the exact circle boundary are included.
-     * 
-     * @param x Search circle center X.
-     * @param y Search circle center Y.
-     * @param radius Non-negative radius.
-     * @return Listing of cities (each on its own line) followed by the
-     *         visited count; or "0" if none and tree empty; or "" if radius
-     *         is invalid.
+     * Circle range search. Returns listing lines (if any) followed by the visit count.
+     * Bad radius → empty string.
      */
     public String search(int x, int y, int radius) {
-        if (radius < 0) {
-            return "";
-        }
-        if (locationIndex.getSize() == 0) {
-            return "0";
-        }
-
-        KDTree.KDSearchResult res = locationIndex.rangeSearch(x, y, radius);
-        String hits = res.listing();
-        if (hits.isEmpty()) {
-            return String.valueOf(res.visited);
-        }
-        return hits + "\n" + res.visited;
+        if (radius < 0) return "";
+        KDTree.SearchOutcome res = byCoord.rangeSearch(x, y, radius);
+        StringBuilder sb = new StringBuilder();
+        sb.append(res.listing);
+        sb.append(res.visited);
+        return sb.toString();
     }
 
-
-
-    // ----------------------------------------------------------
     /**
-     * Print a listing of the database as an inorder traversal of the k-d tree.
-     * Each city should be printed on a separate line. Each line should start
-     * with the level of the current node, then be indented by 2 * level spaces
-     * for a node at a given level, counting the root as level 0.
-     * 
-     * @return String listing the cities as specified.
+     * Inorder listing of the kd-tree: level, 2*level spaces, then "name x y".
      */
     public String debug() {
-        return locationIndex.toString();
+        StringBuilder sb = new StringBuilder();
+        byCoord.inorderWithLevels((level, e) -> {
+            sb.append(level);
+            for (int i = 0; i < 2 * level; i++) sb.append(" ");
+            sb.append(e.getName()).append(" ").append(e.getX()).append(" ").append(e.getY()).append("\n");
+        });
+        return sb.toString();
     }
 
-
-    // ----------------------------------------------------------
     /**
-     * Print a listing of the BST in alphabetical order (inorder traversal)
-     * on the names.
-     * Each city should be printed on a separate line. Each line should start
-     * with the level of the current node, then be indented by 2 * level spaces
-     * for a node at a given level, counting the root as level 0.
-     * 
-     * @return String listing the cities as specified.
+     * Inorder listing of the BST by name: level, 2*level spaces, then "name (x, y)".
      */
     public String print() {
-        return nameIndex.toString();
+        StringBuilder sb = new StringBuilder();
+        byName.inorderWithLevels((level, c) -> {
+            sb.append(level);
+            for (int i = 0; i < 2 * level; i++) sb.append(" ");
+            sb.append(c.getName()).append(" (").append(c.getX()).append(", ").append(c.getY()).append(")").append("\n");
+        });
+        return sb.toString();
     }
-
 }

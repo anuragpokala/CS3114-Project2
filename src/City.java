@@ -1,87 +1,62 @@
 /**
- * City class - stores city data
- * 
- * @author Parth Mehta
- * @version 10/3/2025
+ * Immutable city record used by both BST (name order) and KDTree (coordinate order).
+ *
+ * Ordering for BST is by city name (lexicographic).
  */
-public class City {
-    private String name;
-    private int x;
-    private int y;
+public final class City implements Comparable<City> {
+    private final String name;
+    private final int x;
+    private final int y;
 
-    /**
-     * Constructor
-     * 
-     * @param name
-     *            city name
-     * @param x
-     *            x-coordinate
-     * @param y
-     *            y-coordinate
-     */
     public City(String name, int x, int y) {
         this.name = name;
         this.x = x;
         this.y = y;
     }
 
-
-    /**
-     * Get city name
-     * 
-     * @return name
-     */
+    /** City name (key for BST ordering). */
     public String getName() {
         return name;
     }
 
-
-    /**
-     * Get x-coordinate
-     * 
-     * @return x
-     */
+    /** X coordinate. */
     public int getX() {
         return x;
     }
 
-
-    /**
-     * Get y-coordinate
-     * 
-     * @return y
-     */
+    /** Y coordinate. */
     public int getY() {
         return y;
     }
 
+    /** In BST we order by name only. */
+    @Override
+    public int compareTo(City other) {
+        return this.name.compareTo(other.name);
+    }
 
-    /**
-     * String representation
-     * 
-     * @return formatted city info
-     */
+    /** Convenience string used by debug/print paths. */
     @Override
     public String toString() {
         return name + " (" + x + ", " + y + ")";
     }
 
-
-    /**
-     * Check equality based on name and coordinates
-     * 
-     * @param obj
-     *            object to compare
-     * @return true if equal
-     */
+    /** Exact triple equality: same name and coordinates. */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
-            return true;
-        if (obj == null || getClass() != obj.getClass())
-            return false;
+        if (this == obj) return true;
+        if (!(obj instanceof City)) return false;
+        City o = (City)obj;
+        return x == o.x && y == o.y && name.equals(o.name);
+    }
 
-        City other = (City)obj;
-        return x == other.x && y == other.y && name.equals(other.name);
+    @Override
+    public int hashCode() {
+        // Not required by the spec, but harmless if present.
+        int h = 17;
+        h = 31 * h + name.hashCode();
+        h = 31 * h + x;
+        h = 31 * h + y;
+        return h;
     }
 }
