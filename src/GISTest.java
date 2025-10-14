@@ -273,18 +273,15 @@ public class GISTest extends TestCase {
         String out = it.search(50, 0, 10); // cx - r == 40, skip left, include root
         assertEquals("root (40, 0)\n2", out);
     }
-    
-    /**
-     * delete(name): three duplicates, ensure preorder order (root, then left, then right/traversal).
-     */
+
+    /** delete(name): three duplicates, ensure preorder order. */
     public void testDeleteByNameThreeDuplicatesPreorderOrder() {
         GIS db = new GISDB();
-        db.insert("Dup", 50, 50);  // this one should be deleted first (preorder)
-        db.insert("A",   25, 60);  // unrelated
-        db.insert("Dup", 40, 40);  // second (found next by preorder on BST traverse)
-        db.insert("Dup", 60, 60);  // third
+        db.insert("Dup", 50, 50);  // should be deleted first (preorder)
+        db.insert("A",   25, 60);
+        db.insert("Dup", 40, 40);
+        db.insert("Dup", 60, 60);
         String out = db.delete("Dup");
-        // Must contain all three coords, one per line, and no trailing newline
         assertTrue(out.contains("(50, 50)"));
         assertTrue(out.contains("(40, 40)"));
         assertTrue(out.contains("(60, 60)"));
@@ -292,22 +289,17 @@ public class GISTest extends TestCase {
         assertEquals("", db.info("Dup"));
     }
 
-    /**
-     * search(): non-empty tree, both even/odd branches explored with no hits -> digits only.
-     */
+    /** search(): both branches explored with no hits -> digits only. */
     public void testSearchBothBranchesNoHitsDigitsOnly() {
         GIS db = new GISDB();
         db.insert("R", 50, 50);
         db.insert("L", 25, 60);
         db.insert("RL", 75, 40);
-        String out = db.search(50, 5000, 25); // far in Y; causes exploration but no hits
+        String out = db.search(50, 5000, 25);
         assertTrue(out.matches("\\d+"));
     }
-    
-    /**
-     * delete(name): removing a single matching record when others share prefixes
-     * ensures the while-loop exits correctly and equality is strict.
-     */
+
+    /** delete(name) with prefix-similar others. */
     public void testDeleteByNameSingleVsPrefixNames() {
         GIS db = new GISDB();
         db.insert("Ann", 1, 1);
@@ -315,58 +307,39 @@ public class GISTest extends TestCase {
         db.insert("Anne", 3, 3);
         String out = db.delete("Ann");
         assertEquals("(1, 1)", out);
-        // remaining names still present
         assertTrue(db.info("Anna").contains("(2, 2)"));
         assertTrue(db.info("Anne").contains("(3, 3)"));
     }
-    
-    /**
-     * Visit count precision when deleting a non-existent coordinate near the root.
-     * Helps expose arithmetic/visited mutants.
-     */
-    public void testDeleteNonexistentShallowVisitCount() {
-        GISDB it = new GISDB();
-        it.insert("A", 5, 5);
-        // Missing coordinate: only the root is visited, so "1"
-        assertEquals("1", it.delete(9, 9));
-    }
-    
-    /**
-     * Search uses exact (dx*dx + dy*dy <= r*r). Include boundary hit and a near
-     * miss to kill arithmetic second-member mutants.
-     */
-    public void testSearchDistanceBoundaryVsNearMiss() {
-        GIS it = new GISDB();
-        it.insert("BND", 3, 4);   // on boundary for r=5
-        it.insert("MISS", 3, 5);  // just outside
 
-        String out = it.search(0, 0, 5);
+    /** Visit count precision when deleting a non-existent coordinate. */
+    public void testDeleteNonexistentShallowVisitCount() {
+        GISDB db = new GISDB();
+        db.insert("A", 5, 5);
+        assertEquals("1", db.delete(9, 9));
+    }
+
+    /** Distance boundary vs near miss. */
+    public void testSearchDistanceBoundaryVsNearMiss() {
+        GIS db = new GISDB();
+        db.insert("BND", 3, 4);   // on boundary for r=5
+        db.insert("MISS", 3, 5);  // just outside
+        String out = db.search(0, 0, 5);
         assertTrue(out.contains("BND (3, 4)"));
         assertFalse(out.contains("MISS (3, 5)"));
     }
 
-    /**
-     * Delete(name) visit count when multiple matches exist in different subtrees.
-     * Tightens equality/visit branches around 170–178 and 175 arithmetic.
-     */
+    /** delete(name) visit count when matches exist in both subtrees. */
     public void testDeleteByNameVisitCountMultiSubtrees() {
-        GIS it = new GISDB();
-        it.insert("Dup", 50, 50);  // root
-        it.insert("X",   10, 10);  // other name
-        it.insert("Dup", 60,  5);  // right subtree
-        it.insert("Dup", 40, 90);  // left subtree
-        String out = it.delete("Dup");
-        // Should list two or three coords without trailing newline
+        GIS db = new GISDB();
+        db.insert("Dup", 50, 50);  // root
+        db.insert("X",   10, 10);
+        db.insert("Dup", 60,  5);  // right subtree
+        db.insert("Dup", 40, 90);  // left subtree
+        String out = db.delete("Dup");
         assertTrue(out.contains("(50, 50)"));
         assertTrue(out.contains("(60, 5)"));
         assertTrue(out.contains("(40, 90)"));
         assertFalse(out.endsWith("\n"));
-        assertEquals("", it.info("Dup"));
+        assertEquals("", db.info("Dup"));
     }
-
-
-
-
-
-    
 }

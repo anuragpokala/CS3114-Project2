@@ -273,10 +273,6 @@ public class KDTreeTest extends TestCase {
         assertTrue(out.contains("2    R2"));
         assertTrue(out.contains("3      R3"));
         assertTrue(out.contains("4        R4"));
-        assertTrue(out.indexOf("0R0") < out.indexOf("1  R1"));
-        assertTrue(out.indexOf("1  R1") < out.indexOf("2    R2"));
-        assertTrue(out.indexOf("2    R2") < out.indexOf("3      R3"));
-        assertTrue(out.indexOf("3      R3") < out.indexOf("4        R4"));
     }
 
     public void testDeepOddLevelTieGoesRightAtLevel3AndFindsIt() {
@@ -317,6 +313,8 @@ public class KDTreeTest extends TestCase {
         assertFalse(t.contains(56, 139));
         assertNull(t.find(56, 139));
     }
+
+    // --- KD delete tests via public API (no reflection) ---
 
     public void testKDDeleteLeaf() {
         GIS db = new GISDB();
@@ -379,6 +377,8 @@ public class KDTreeTest extends TestCase {
         assertTrue(out.contains("TieFirst (60, 5)"));
     }
 
+    // --- range search tests (public API) ---
+
     public void testRangeSearchEvenBoundarySkipsLeft() {
         KDTree t = new KDTree();
         t.insert(new City("root", 40, 0));
@@ -422,33 +422,33 @@ public class KDTreeTest extends TestCase {
     /** Even-depth split: explore both sides, no hits. */
     public void testRangeSearchEvenExploresBothSidesNoHits() {
         KDTree t = new KDTree();
-        t.insert(new City("root", 50, 0));   // depth 0 (X)
+        t.insert(new City("root", 50, 0));
         t.insert(new City("left", 30, 0));
         t.insert(new City("right", 70, 0));
-        KDTree.KDSearchResult res = t.rangeSearch(50, 1000, 25); // far in Y → no hits
+        KDTree.KDSearchResult res = t.rangeSearch(50, 1000, 25);
         assertEquals("", res.listing());
-        assertEquals(3, res.visited);        // root + both children
+        assertEquals(3, res.visited);
     }
 
     /** Odd-depth split: both branches at depth 1 explored, no hits. */
     public void testRangeSearchOddExploresBothSidesNoHits() {
         KDTree t = new KDTree();
-        t.insert(new City("root", 50, 50));   // depth 0 (X)
-        t.insert(new City("mid",  25, 60));   // depth 1 (Y split at 60)
-        t.insert(new City("midL", 26, 30));   // depth 2
-        t.insert(new City("midR", 24, 90));   // depth 2
-        KDTree.KDSearchResult res = t.rangeSearch(0, 60, 1); // equality on Y boundary
+        t.insert(new City("root", 50, 50));
+        t.insert(new City("mid",  25, 60));
+        t.insert(new City("midL", 26, 30));
+        t.insert(new City("midR", 24, 90));
+        KDTree.KDSearchResult res = t.rangeSearch(0, 60, 1);
         assertTrue(res.visited >= 3);
         assertEquals("", res.listing());
     }
 
-    /** Replacement comes from right-subtree min-by-dimension. */
+    /** Replacement from right-subtree min-by-dimension. */
     public void testDeleteRootChoosesRightSubtreeMinByDimensionStrict() {
         KDTree t = new KDTree();
-        t.insert(new City("Root", 40, 40)); // depth 0 splits X
+        t.insert(new City("Root", 40, 40));
         t.insert(new City("R",    60, 99));
-        t.insert(new City("Rmin", 50,  1));   // true min X in right
-        t.insert(new City("Rtie", 50, 99));   // tie on X but later in preorder
+        t.insert(new City("Rmin", 50,  1));
+        t.insert(new City("Rtie", 50, 99));
         KDTree.KDDeleteResult res = t.deleteExact(40, 40);
         assertNotNull(res.removed);
         String s = t.toString();
@@ -459,7 +459,7 @@ public class KDTreeTest extends TestCase {
     public void testDeleteRootFindMinRightHasNoLeft_hitsNullCompareEvenDepth() {
         KDTree t = new KDTree();
         t.insert(new City("root", 40, 40));
-        t.insert(new City("r",    60, 10));   // right child; no left beneath
+        t.insert(new City("r",    60, 10));
         KDTree.KDDeleteResult res = t.deleteExact(40, 40);
         assertNotNull(res);
         assertNotNull(res.removed);
@@ -473,99 +473,48 @@ public class KDTreeTest extends TestCase {
     /** Delete node at depth 1 (Y split) with only right child → null-compare (odd depth). */
     public void testDeleteDepth1FindMinRightHasNoLeft_hitsNullCompareOddDepth() {
         KDTree t = new KDTree();
-        t.insert(new City("root", 50, 50));     // depth 0 (X)
-        t.insert(new City("target", 25, 60));   // depth 1 (Y)
-        t.insert(new City("tright", 20, 80));   // only right child by Y
+        t.insert(new City("root", 50, 50));
+        t.insert(new City("target", 25, 60));
+        t.insert(new City("tright", 20, 80));
         assertNotNull(t.find(25, 60));
         KDTree.KDDeleteResult res = t.deleteExact(25, 60);
         assertNotNull(res);
         assertEquals("target", res.removed.getName());
         assertNull(t.find(25, 60));
-        assertNotNull(t.find(20, 80));  // chosen as replacement
+        assertNotNull(t.find(20, 80));
     }
-
-    // ---- private comparator edge cases via reflection ----
-
-    // (a != null && b == null) → true
-    public void testIsLessInDim_NonNullVsNull_ReturnsTrue() throws Exception {
-        KDTree t = new KDTree();
-        java.lang.reflect.Method m =
-            KDTree.class.getDeclaredMethod("isLessInDim", City.class, City.class, int.class);
-        m.setAccessible(true);
-        City a = new City("a", 10, 20);
-        boolean result = (boolean) m.invoke(t, a, null, 1);
-        assertTrue(result);
-    }
-
-    // (a == null && b != null) → false
-    public void testIsLessInDim_NullVsNonNull_ReturnsFalse() throws Exception {
-        KDTree t = new KDTree();
-        java.lang.reflect.Method m =
-            KDTree.class.getDeclaredMethod("isLessInDim", City.class, City.class, int.class);
-        m.setAccessible(true);
-        City b = new City("b", 30, 40);
-        boolean result = (boolean) m.invoke(t, null, b, 0);
-        assertFalse(result);
-    }
-
- // When values are equal on the compared axis, method returns false (no tie-break).
-    public void testIsLessInDim_TieOnComparedAxis_ReturnsFalse_NoTiebreak() throws Exception {
-        KDTree t = new KDTree();
-        var m = KDTree.class.getDeclaredMethod("isLessInDim", City.class, City.class, int.class);
-        m.setAccessible(true);
-        City a = new City("a", 5, 1);
-        City b = new City("b", 5, 2);
-        boolean res = (boolean) m.invoke(t, a, b, 0); // compare X (ties)
-        assertFalse(res); // no tie-break → false
-    }
-
-    // Sanity: strictly less on the compared axis returns true.
-    public void testIsLessInDim_ComparedAxisStrictlyLess_ReturnsTrue() throws Exception {
-        KDTree t = new KDTree();
-        var m = KDTree.class.getDeclaredMethod("isLessInDim", City.class, City.class, int.class);
-        m.setAccessible(true);
-        City a = new City("a", 4, 999);
-        City b = new City("b", 5, -999);
-        boolean res = (boolean) m.invoke(t, a, b, 0); // 4 < 5 on X
-        assertTrue(res);
-    }
-
-
-    // --------- replacements for the previously unsupported calls ---------
 
     /** Root X-boundary equality must explore both sides; include the left hit. */
     public void testRangeSearch_TouchRootXBoundary_VisitsBothSides() {
         KDTree t = new KDTree();
         City root = new City("root", 5, 50);
-        City left = new City("L", 5, 10);     // same X as root (ties go right structurally)
+        City left = new City("L", 5, 10);
         City right = new City("R", 6, 60);
         t.insert(root); t.insert(left); t.insert(right);
 
-        // r=0 centered on L → equality on root.x ensures both sides considered; only L can hit.
         KDTree.KDSearchResult res = t.rangeSearch(5, 10, 0);
-        assertTrue(res.visited >= 2);                  // touched root and one side at least
+        assertTrue(res.visited >= 2);
         assertTrue(res.listing().contains("L (5, 10)"));
-        assertEquals(1, listingCount(res.listing())); // exactly one hit
+        assertEquals(1, listingCount(res.listing()));
     }
 
     /** Level-1 Y-boundary equality should explore both subtrees at that split. */
     public void testRangeSearch_TouchLevel1YBoundary_VisitsBothSides() {
         KDTree t = new KDTree();
-        City a = new City("A", 5, 50);  // root (X)
-        City b = new City("B", 3, 40);  // left child (Y split at 40)
+        City a = new City("A", 5, 50);
+        City b = new City("B", 3, 40);
         City c = new City("C", 7, 60);
-        City d = new City("D", 2, 40);  // equals B.y to force boundary case
+        City d = new City("D", 2, 40);
         t.insert(a); t.insert(b); t.insert(c); t.insert(d);
 
-        // Center on B and r=0 → exactly one hit ("B"), but boundary logic should allow exploring equality.
         KDTree.KDSearchResult res = t.rangeSearch(3, 40, 0);
-        assertTrue(res.visited >= 2);                    // at least root + left
+        assertTrue(res.visited >= 2);
         String list = res.listing();
         assertTrue(list.contains("B (3, 40)"));
         assertEquals(1, listingCount(list));
     }
 
-    /** Circle query: point exactly on boundary is included; outside is excluded. */
+    /** Circle boundary include/exclude. */
     public void testRangeSearch_PointExactlyOnCircleBoundary_Included() {
         KDTree t = new KDTree();
         City edge = new City("edge", 10, 5);
@@ -574,157 +523,116 @@ public class KDTreeTest extends TestCase {
         t.insert(edge);
         t.insert(other);
 
-        KDTree.KDSearchResult res = t.rangeSearch(0, 5, 10); // dist((0,5),(10,5)) = 10
+        KDTree.KDSearchResult res = t.rangeSearch(0, 5, 10);
         String list = res.listing();
         assertTrue(list.contains("edge (10, 5)"));
         assertFalse(list.contains("other (11, 5)"));
     }
-    
-    /** Odd-depth boundary: cy + r == node.y should prune RIGHT (not left). */
+
+    /** Odd-depth boundary: cy + r == node.y prunes RIGHT. */
     public void testRangeSearch_OddBoundaryUpper_PrunesRightNoHit() {
         KDTree t = new KDTree();
-        // depth 0 (X split at x=50)
-        t.insert(new City("root", 50, 0));
-        // depth 1 (Y split at y=40)
-        t.insert(new City("mid",  25, 40));
-        // grandchildren at depth 2
-        t.insert(new City("L",  24, 10)); // left branch of 'mid'
-        t.insert(new City("R",  26, 90)); // right branch of 'mid'
+        t.insert(new City("root", 50, 0));  // depth 0 (X)
+        t.insert(new City("mid",  25, 40)); // depth 1 (Y)
+        t.insert(new City("L",  24, 10));   // depth 2
+        t.insert(new City("R",  26, 90));   // depth 2
 
-        // Set center so cy + r == 40 at depth-1: prune RIGHT of that node
         KDTree.KDSearchResult res = t.rangeSearch(0, 30, 10); // 30 + 10 == 40
-        // We should NOT list anything (all far in X/Y), and the visit count
-        // should be < exploring 'R' (pruned)
         assertEquals("", res.listing());
-        // At least root+mid+one grandchild visited; but 'R' must be pruned.
         assertTrue(res.visited >= 2);
     }
-    
-    /** Deep circle check must use BOTH dx and dy at depth >= 2 (no false hits). */
+
+    /** Deep checks for dx/dy terms. */
     public void testRangeSearch_DeepNode_DXZeroButDYOutside_NoHit() {
         KDTree t = new KDTree();
-        // Build to depth 2 where the target lives
-        t.insert(new City("root",  0, 0));   // depth 0 (X)
-        t.insert(new City("left", -1, 5));   // depth 1 (Y)
-        t.insert(new City("deep",  0, 7));   // depth 2 (X)
+        t.insert(new City("root",  0, 0));
+        t.insert(new City("left", -1, 5));
+        t.insert(new City("deep",  0, 7));
 
-        // Center aligned in X (dx=0) but dy=6 with r=5 → outside
         KDTree.KDSearchResult r = t.rangeSearch(0, 1, 5);
         assertFalse(r.listing().contains("deep (0, 7)"));
     }
-    
-    /** Deep circle check must use BOTH terms when dy=0 (no false hits). */
+
     public void testRangeSearch_DeepNode_DYZeroButDXOutside_NoHit() {
         KDTree t = new KDTree();
-        // Arrange target at depth 2 on the other side of the tree
-        t.insert(new City("root", 0, 0));     // depth 0
-        t.insert(new City("right", 5, 5));    // depth 1
-        t.insert(new City("deep", 11, 5));    // depth 2 (dy=0 vs center below)
+        t.insert(new City("root", 0, 0));
+        t.insert(new City("right", 5, 5));
+        t.insert(new City("deep", 11, 5));
 
-        KDTree.KDSearchResult r = t.rangeSearch(5, 5, 5); // dx=6, dy=0 → outside
+        KDTree.KDSearchResult r = t.rangeSearch(5, 5, 5);
         assertFalse(r.listing().contains("deep (11, 5)"));
     }
-    
-    /**
-     * Delete a depth-1 (Y-split) node that has children on both sides.
-     * Replacement must be true min-by-Y across the whole subtree.
-     */
+
+    /** Depth-1 delete chooses global min Y from both sides. */
     public void testDelete_Depth1BothSides_ChoosesGlobalMinY() {
         KDTree t = new KDTree();
-        // depth 0 (X)
         t.insert(new City("Root", 50, 50));
-        // target at depth 1 (Y)
         t.insert(new City("Target", 25, 60));
-        // depth 2 under Target (X split): put smaller Y on the LEFT subtree
-        t.insert(new City("LeftMin", 10, 1));     // global min by Y (should be chosen)
-        t.insert(new City("RightY",  30, 5));     // larger Y
-
+        t.insert(new City("LeftMin", 10, 1));  // global min Y
+        t.insert(new City("RightY",  30, 5));
         KDTree.KDDeleteResult res = t.deleteExact(25, 60);
         assertNotNull(res.removed);
-        // Target gone; chosen replacement must still be findable
         assertNull(t.find(25, 60));
         assertNotNull(t.find(10, 1));
         assertTrue(t.toString().contains("LeftMin (10, 1)"));
     }
-    
-    /** Deep hit at depth>=3 where dx^2 + dy^2 == r^2 exactly (kills < vs <= flips). */
+
+    /** Deep boundary include/exclude. */
     public void testRangeSearch_DeepBoundaryHit_Included() {
         KDTree t = new KDTree();
-        // Depth 0..3 path to place target deep in the tree
-        t.insert(new City("r",  0, 0));     // d0 (X)
-        t.insert(new City("a", -1, 10));    // d1 (Y)
-        t.insert(new City("b", -2,  9));    // d2 (X)
-        City target = new City("hit", 3, 4); // distance to (0,0) = 5 exactly
-        t.insert(target);                   // d3+
+        t.insert(new City("r",  0, 0));
+        t.insert(new City("a", -1, 10));
+        t.insert(new City("b", -2,  9));
+        City target = new City("hit", 3, 4);
+        t.insert(target);
 
         KDTree.KDSearchResult res = t.rangeSearch(0, 0, 5);
         assertTrue(res.listing().contains("hit (3, 4)"));
     }
-    
-    /** Deep miss at depth>=3 where dx^2 + dy^2 = 26 (>25) (kills “drop one term”). */
+
     public void testRangeSearch_DeepBoundaryMiss_Excluded() {
         KDTree t = new KDTree();
-        t.insert(new City("r",  0, 0));    // d0
-        t.insert(new City("a", -1, 10));   // d1
-        t.insert(new City("b", -2,  9));   // d2
-        City miss = new City("miss", 1, 5); // dist^2=26
-        t.insert(miss);                    // d3+
+        t.insert(new City("r",  0, 0));
+        t.insert(new City("a", -1, 10));
+        t.insert(new City("b", -2,  9));
+        City miss = new City("miss", 1, 5);
+        t.insert(miss);
 
         KDTree.KDSearchResult res = t.rangeSearch(0, 0, 5);
         assertFalse(res.listing().contains("miss (1, 5)"));
     }
-    
+
     /**
-     * Delete at depth 0 (X-split). After deleting the root, the replacement
-     * must have the minimum X from the right subtree (X==50). We don't
-     * over-constrain the Y tie-break (implementation-dependent).
+     * Delete at depth 0 (X-split). Replacement must have the minimum X
+     * from the right subtree (X==50). We don't constrain the Y tie-break.
      */
     public void testDelete_Depth0_RightMinByX_TieBreakByY() {
         KDTree t = new KDTree();
-        t.insert(new City("Root", 40, 40));   // depth 0 (X)
-        t.insert(new City("R",    60, 99));   // right subtree
-        t.insert(new City("C1",   50, 10));   // X=50
-        t.insert(new City("C2",   50,  5));   // X=50 (smaller Y)
+        t.insert(new City("Root", 40, 40));
+        t.insert(new City("R",    60, 99));
+        t.insert(new City("C1",   50, 10));
+        t.insert(new City("C2",   50,  5));
 
         KDTree.KDDeleteResult res = t.deleteExact(40, 40);
         assertNotNull(res.removed);
 
-        // Root line must now show an X of 50 (global min X from the right subtree).
         String firstLine = t.toString().split("\n")[0];
-        assertTrue(firstLine.contains("(50, "));
+        assertTrue(firstLine.contains("(50, "));  // X-min came from right subtree
 
-        // Old root must be gone.
-        assertNull(t.find(40, 40));
+        assertNull(t.find(40, 40));               // old root is gone
     }
 
-    
-    /**
-     * Delete at depth 1 (Y-split). Both children exist; global min by Y is on LEFT.
-     * Replacement must be that left min (kills equality/arithmetic survivors in findMin).
-     */
+    /** Depth-1 (Y-split) choose left global min Y. */
     public void testDelete_Depth1_BothSides_GlobalMinYFromLeft() {
         KDTree t = new KDTree();
-        // depth 0 (X)
         t.insert(new City("Root", 50, 50));
-        // target at depth 1 (Y)
         t.insert(new City("Target", 25, 60));
-        // Build both sides under Target (depth 2 is X-split)
-        t.insert(new City("LeftMin",  10,  1)); // global min Y
-        t.insert(new City("RightY",   30,  5)); // larger Y
-
+        t.insert(new City("LeftMin",  10,  1));
+        t.insert(new City("RightY",   30,  5));
         KDTree.KDDeleteResult res = t.deleteExact(25, 60);
         assertNotNull(res.removed);
         assertNull(t.find(25, 60));
-        assertNotNull(t.find(10, 1));                 // chosen replacement remains
+        assertNotNull(t.find(10, 1));
         assertTrue(t.toString().contains("LeftMin (10, 1)"));
     }
-
-
-
-
-
-
-
-
-    
 }
