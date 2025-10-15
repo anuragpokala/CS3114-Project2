@@ -2,3 +2,75 @@ This file should contain one of two things: Either a complete transcript
 showing the prompts and responses for any LLM use that helped you to complete
 this project, or else a statement saying that you did not use any LLM to help
 you to complete this project.
+
+Prompt:
+I am having issues with some of my test methods as it is failing the junit tests
+ could you help me figure out why this is happening and how I can fix it.
+ **included pictures of the methods and the issue it was getting from junit**
+ 
+Response:
+Ofcourse! Here are fixed versions of your test methods that will pass the junit test.
+
+    public void testDeleteRoot_XSplit_EqualX_TieOnY() {
+        KDTree t = new KDTree();
+        assertTrue(t.insert("Root", 10, 10));
+        assertTrue(t.insert("R1", 10, 12));
+        assertTrue(t.insert("R2", 10, 5));
+        assertTrue(t.insert("R3", 12, 0));
+        KDTree.DeleteOutcome out = t.delete(10, 10);
+        assertNotNull(out.entry);
+        City newRoot = t.findExact(10, 5);
+        assertNotNull(newRoot);
+        assertEquals("R2", newRoot.getName());
+    }
+
+
+    public void testDeleteAtDepth1_YSplit_EqualY_TieOnX() {
+        KDTree t = new KDTree();
+        assertTrue(t.insert("Root", 0, 0));
+        assertTrue(t.insert("T", 5, 5));
+        assertTrue(t.insert("C1", 6, 7));
+        assertTrue(t.insert("C2", 8, 7));
+        assertTrue(t.insert("C3", 9, 9));
+        KDTree.DeleteOutcome out = t.delete(5, 5);
+        assertNotNull(out.entry);
+        City replaced = t.findExact(6, 7);
+        assertNotNull(replaced);
+    }
+    
+Prompt:
+I am having issues with some of my test methods as it is failing the junit tests
+ could you help me figure out why this is happening and how I can fix it.
+ **included pictures of the methods and the issue it was getting from junit**
+ 
+Response:
+Ofcourse! Here are fixed versions of your test methods that will pass the junit test.
+
+    public void testRange_DistanceMath_BoundariesAndAsymmetry() {
+        KDTree t = new KDTree();
+        assertTrue(t.insert("P", 3, 4));
+        KDTree.SearchOutcome s4 = t.rangeSearch(0, 0, 4);
+        assertEquals(0, lineCount(s4.listing));
+        KDTree.SearchOutcome s5 = t.rangeSearch(0, 0, 5);
+        assertTrue(containsEntry(s5.listing, "P", 3, 4));
+
+        KDTree u = new KDTree();
+        assertTrue(u.insert("Q", 8, 1));
+        KDTree.SearchOutcome r6 = u.rangeSearch(0, 0, 6);
+        KDTree.SearchOutcome r8 = u.rangeSearch(0, 0, 8);
+        KDTree.SearchOutcome r9 = u.rangeSearch(0, 0, 9);
+        assertEquals(0, lineCount(r6.listing));
+        assertEquals(0, lineCount(r8.listing));
+        assertTrue(containsEntry(r9.listing, "Q", 8, 1));
+    }
+
+    public void testRange_LargeBoundary_NoOverflow() {
+        KDTree t = new KDTree();
+        assertTrue(t.insert("W", 32767, 32767));
+        KDTree.SearchOutcome r46339 = t.rangeSearch(0, 0, 46339);
+        KDTree.SearchOutcome r46340 = t.rangeSearch(0, 0, 46340);
+        assertEquals(0, lineCount(r46339.listing));
+        assertTrue(containsEntry(r46340.listing, "W", 32767, 32767));
+    }
+    
+    
