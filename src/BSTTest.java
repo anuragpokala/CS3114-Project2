@@ -1,26 +1,46 @@
 import student.TestCase;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.List;
+import java.util.ArrayList;
 
 /**
  * Tests for the name-ordered BST that stores City records.
- * Equal keys go LEFT; delete uses max-from-left; removeMatching removes an exact triple.
+ * Equal keys go LEFT; delete uses max-from-left; removeMatching 
+ * removes an exact triple.
+ * @author Parth Mehta
+ * @author Anurag Pokala
+ * @version 2025-10-14
  */
 public class BSTTest extends TestCase 
 {
 
-    // Helper: render BST inorder as "level{2*level spaces}name (x, y)\n"
+    /**
+     * Helper: render BST inorder as "level{2*level spaces}name (x, y)\n"
+     * * @param bst The BST to traverse.
+     * @return The inorder traversal string with levels.
+     */
     private static String inorderToString(BST<City> bst) 
     {
         StringBuilder sb = new StringBuilder();
         bst.inorderWithLevels((lvl, c) -> {
             sb.append(lvl);
-            for (int i = 0; i < 2 * lvl; i++) sb.append(" ");
-            sb.append(c.getName()).append(" (").append(c.getX()).append(", ").append(c.getY()).append(")\n");
+            for (int i = 0; i < 2 * lvl; i++) 
+            {
+                sb.append(" ");
+            }
+            sb.append(c.getName())
+                .append(" (").append(c.getX())
+                .append(", ").append(c.getY())
+                .append(")\n");
         });
         return sb.toString();
     }
 
-    public void testEmptyBasics() {
+    /**
+     * Test basic operations on an empty BST.
+     */
+    public void testEmptyBasics() 
+    {
         BST<City> t = new BST<>();
         assertTrue(t.isEmpty());
         assertEquals(0, t.size());
@@ -28,10 +48,16 @@ public class BSTTest extends TestCase
         assertEquals("", inorderToString(t));
     }
 
-    public void testInsertEqualsGoLeft_InorderOrder() {
+    /**
+     * Test that equal keys go to the left and verify the inorder order 
+     * reflects the left-bias for equal keys.
+     */
+    public void testInsertEqualsGoLeftInorderOrder() 
+    {
         BST<City> t = new BST<>();
         City a1 = new City("Alpha", 1, 1);
-        City a2 = new City("Alpha", 2, 2); // equal name → goes LEFT
+        // equal name -> goes LEFT
+        City a2 = new City("Alpha", 2, 2); 
         City z  = new City("Z", 9, 9);
 
         t.insert(a1);
@@ -43,17 +69,25 @@ public class BSTTest extends TestCase
         int iA2 = s.indexOf("Alpha (2, 2)");
         int iA1 = s.indexOf("Alpha (1, 1)");
         assertTrue(iA2 < iA1);
-        assertTrue(s.contains("0"));            // root level has no extra space
-        assertFalse(s.contains("0 "));          // no space between '0' and name
+        // root level has no extra space
+        assertTrue(s.contains("0"));            
+        // no space between '0' and name
+        assertFalse(s.contains("0 "));          
         assertEquals(3, t.size());
     }
 
-    public void testContainsAndClear() {
+    /**
+     * Test the contains and clear operations.
+     */
+    public void testContainsAndClear() 
+    {
         BST<City> t = new BST<>();
         City a = new City("A", 1, 1);
         City b = new City("B", 2, 2);
-        t.insert(a); t.insert(b);
-        assertTrue(t.contains(new City("A", 999, 999))); // name compare only
+        t.insert(a); 
+        t.insert(b);
+        // name compare only
+        assertTrue(t.contains(new City("A", 999, 999))); 
         assertTrue(t.contains(new City("B", 0, 0)));
         assertFalse(t.contains(new City("C", 3, 3)));
         t.clear();
@@ -61,48 +95,78 @@ public class BSTTest extends TestCase
         assertEquals(0, t.size());
     }
 
-    public void testRemoveByKey_UsesMaxFromLeft() {
+    /**
+     * Test the remove operation (by key name) and verify that it 
+     * uses the max-from-left predecessor for nodes with two children.
+     */
+    public void testRemoveByKeyUsesMaxFromLeft() 
+    {
         BST<City> t = new BST<>();
         City m = new City("M", 5, 5);
         City c = new City("C", 1, 1);
-        City k = new City("K", 2, 2); // will become predecessor of M
+        // will become predecessor of M
+        City k = new City("K", 2, 2); 
         City z = new City("Z", 9, 9);
-        t.insert(m); t.insert(c); t.insert(k); t.insert(z);
+        t.insert(m); 
+        t.insert(c); 
+        t.insert(k); 
+        t.insert(z);
 
-        assertTrue(t.remove(new City("M", 0, 0))); // remove by key (name)
+        // remove by key (name)
+        assertTrue(t.remove(new City("M", 0, 0))); 
         String s = inorderToString(t);
         assertFalse(s.contains("M (5, 5)"));
-        assertTrue(s.contains("K (2, 2)"));       // predecessor moved up
+        // predecessor moved up
+        assertTrue(s.contains("K (2, 2)"));       
         assertEquals(3, t.size());
     }
 
-    public void testRemoveMatching_RemovesExactTripleOnly() {
+    /**
+     * Test the removeMatching operation which should only remove 
+     * a City record if the name, X, and Y coordinates all match 
+     * the predicate.
+     */
+    public void testRemoveMatchingRemovesExactTripleOnly() 
+    {
         BST<City> t = new BST<>();
         City n1 = new City("N", 1, 1);
         City n2 = new City("N", 2, 2);
         City z  = new City("Z", 9, 9);
-        t.insert(n1); t.insert(n2); t.insert(z);
+        t.insert(n1); 
+        t.insert(n2); 
+        t.insert(z);
 
         // wrong coords should not delete
         assertFalse(t.removeMatching(new City("N", 123, 456),
-                c -> c.getName().equals("N") && c.getX() == 123 && c.getY() == 456));
+            c -> c.getName().equals("N") && c.getX() == 123 
+                && c.getY() == 456));
         assertEquals(3, t.size());
 
         // exact delete of (N,2,2)
         assertTrue(t.removeMatching(new City("N", 2, 2),
-                c -> c.getName().equals("N") && c.getX() == 2 && c.getY() == 2));
+            c -> c.getName().equals("N") && c.getX() == 2 
+                && c.getY() == 2));
         assertEquals(2, t.size());
         String s = inorderToString(t);
         assertTrue(s.contains("N (1, 1)"));
         assertFalse(s.contains("N (2, 2)"));
     }
 
-    public void testIndentationExactAcrossDepths() {
+    /**
+     * Test the indentation format from inorderToString to ensure 
+     * it matches the level (depth * 2 spaces).
+     */
+    public void testIndentationExactAcrossDepths() 
+    {
         BST<City> t = new BST<>();
-        t.insert(new City("D0", 0, 0));     // depth 0
-        t.insert(new City("D1", -1, -1));   // depth 1 (equal-left via name order)
-        t.insert(new City("D2", -2, -2));   // depth 2
-        t.insert(new City("D3", -3, -3));   // depth 3
+        // depth 0
+        t.insert(new City("D0", 0, 0));     
+        // depth 1 (equal-left via name order)
+        t.insert(new City("D1", -1, -1));   
+        // depth 2
+        t.insert(new City("D2", -2, -2));   
+        // depth 3
+        t.insert(new City("D3", -3, -3));   
         String s = inorderToString(t);
         assertTrue(s.contains("0D0"));
         assertTrue(s.contains("1  D1"));
@@ -114,20 +178,25 @@ public class BSTTest extends TestCase
      * Test removeMatching on a node with ONLY a right child.
      * Kills mutations on "if (n.left == null)" line.
      */
-    public void testRemoveMatchingNodeWithOnlyRightChild() {
+    public void testRemoveMatchingNodeWithOnlyRightChild() 
+    {
         BST<City> t = new BST<>();
         
         // Build tree where we can remove a node with only right child
-        t.insert(new City("M", 50, 50));       // Root
-        t.insert(new City("Parent", 25, 25)); // Left of M - this will have only right child
-        t.insert(new City("RChild", 30, 30));  // Right child of Parent (only child)
+        // Root
+        t.insert(new City("M", 50, 50));       
+        // Left of M - this will have only right child
+        t.insert(new City("Parent", 25, 25)); 
+        // Right child of Parent (only child)
+        t.insert(new City("RChild", 30, 30));  
         
         assertEquals(3, t.size());
         
         // Remove Parent which has ONLY a right child
         assertTrue(t.removeMatching(
             new City("Parent", 25, 25),
-            c -> c.getName().equals("Parent") && c.getX() == 25 && c.getY() == 25
+            c -> c.getName().equals("Parent") && c.getX() == 25 
+                && c.getY() == 25
         ));
         
         assertEquals(2, t.size());
@@ -147,20 +216,25 @@ public class BSTTest extends TestCase
      * Test removeMatching on a node with ONLY a left child.
      * Kills mutations on "if (n.right == null)" line.
      */
-    public void testRemoveMatchingNodeWithOnlyLeftChild() {
+    public void testRemoveMatchingNodeWithOnlyLeftChild() 
+    {
         BST<City> t = new BST<>();
         
         // Build tree where we can remove a node with only left child
-        t.insert(new City("M", 50, 50));      // Root
-        t.insert(new City("Parent", 75, 75)); // Right of M - this will have only left child
-        t.insert(new City("LChild", 60, 60)); // Left child of Parent (only child)
+        // Root
+        t.insert(new City("M", 50, 50));      
+        // Right of M - this will have only left child
+        t.insert(new City("Parent", 75, 75)); 
+        // Left child of Parent (only child)
+        t.insert(new City("LChild", 60, 60)); 
         
         assertEquals(3, t.size());
         
         // Remove Parent which has ONLY a left child
         assertTrue(t.removeMatching(
             new City("Parent", 75, 75),
-            c -> c.getName().equals("Parent") && c.getX() == 75 && c.getY() == 75
+            c -> c.getName().equals("Parent") && c.getX() == 75 
+                && c.getY() == 75
         ));
         
         assertEquals(2, t.size());
@@ -180,17 +254,20 @@ public class BSTTest extends TestCase
      * Test removeMatching on a leaf node (both children null).
      * Ensures the checks work correctly when both are null.
      */
-    public void testRemoveMatchingLeafNode() {
+    public void testRemoveMatchingLeafNode() 
+    {
         BST<City> t = new BST<>();
         t.insert(new City("Root", 50, 50));
-        t.insert(new City("Leaf", 25, 25));  // Left leaf
+        // Left leaf
+        t.insert(new City("Leaf", 25, 25));  
         
         assertEquals(2, t.size());
         
         // Remove the leaf
         assertTrue(t.removeMatching(
             new City("Leaf", 25, 25),
-            c -> c.getName().equals("Leaf") && c.getX() == 25 && c.getY() == 25
+            c -> c.getName().equals("Leaf") && c.getX() == 25 
+                && c.getY() == 25
         ));
         
         assertEquals(1, t.size());
@@ -204,19 +281,25 @@ public class BSTTest extends TestCase
      * take the single-child path when both children exist.
      * This is a defensive test for the mutation where checks become false.
      */
-    public void testRemoveMatchingNodeWithTwoChildren() {
+    public void testRemoveMatchingNodeWithTwoChildren() 
+    {
         BST<City> t = new BST<>();
-        t.insert(new City("M", 50, 50));      // Root - will have two children
-        t.insert(new City("L", 25, 25));      // Left child
-        t.insert(new City("R", 75, 75));      // Right child
-        t.insert(new City("LL", 10, 10));     // Left-left (so L has a child)
+        // Root - will have two children
+        t.insert(new City("M", 50, 50));      
+        // Left child
+        t.insert(new City("L", 25, 25));      
+        // Right child
+        t.insert(new City("R", 75, 75));      
+        // Left-left (so L has a child)
+        t.insert(new City("LL", 10, 10));     
         
         assertEquals(4, t.size());
         
         // Remove M which has TWO children
         assertTrue(t.removeMatching(
             new City("M", 50, 50),
-            c -> c.getName().equals("M") && c.getX() == 50 && c.getY() == 50
+            c -> c.getName().equals("M") && c.getX() == 50 
+                && c.getY() == 50
         ));
         
         assertEquals(3, t.size());
@@ -237,13 +320,17 @@ public class BSTTest extends TestCase
      * Test remove() on a node with ONLY a right child.
      * Kills mutation on "if (n.left == null)" line in removeRec.
      */
-    public void testRemoveNodeWithOnlyRightChild() {
+    public void testRemoveNodeWithOnlyRightChild() 
+    {
         BST<City> t = new BST<>();
         
         // Build tree where we remove a node with only right child
-        t.insert(new City("M", 50, 50));       // Root
-        t.insert(new City("Parent", 25, 25)); // Left of M
-        t.insert(new City("RChild", 30, 30)); // Right child of Parent (only child)
+        // Root
+        t.insert(new City("M", 50, 50));       
+        // Left of M
+        t.insert(new City("Parent", 25, 25)); 
+        // Right child of Parent (only child)
+        t.insert(new City("RChild", 30, 30)); 
         
         assertEquals(3, t.size());
         
@@ -267,13 +354,17 @@ public class BSTTest extends TestCase
      * Test remove() on a node with ONLY a left child.
      * Kills mutation on "if (n.right == null)" line in removeRec.
      */
-    public void testRemoveNodeWithOnlyLeftChild() {
+    public void testRemoveNodeWithOnlyLeftChild() 
+    {
         BST<City> t = new BST<>();
         
         // Build tree where we remove a node with only left child
-        t.insert(new City("M", 50, 50));      // Root
-        t.insert(new City("Parent", 75, 75)); // Right of M
-        t.insert(new City("LChild", 60, 60)); // Left child of Parent (only child)
+        // Root
+        t.insert(new City("M", 50, 50));      
+        // Right of M
+        t.insert(new City("Parent", 75, 75)); 
+        // Left child of Parent (only child)
+        t.insert(new City("LChild", 60, 60)); 
         
         assertEquals(3, t.size());
         
@@ -297,10 +388,12 @@ public class BSTTest extends TestCase
      * Test remove() on a leaf node (both children null).
      * Ensures both null checks work correctly.
      */
-    public void testRemoveLeafNode() {
+    public void testRemoveLeafNode() 
+    {
         BST<City> t = new BST<>();
         t.insert(new City("Root", 50, 50));
-        t.insert(new City("Leaf", 25, 25));  // Left leaf
+        // Left leaf
+        t.insert(new City("Leaf", 25, 25));  
         
         assertEquals(2, t.size());
         
@@ -318,12 +411,17 @@ public class BSTTest extends TestCase
      * Ensures we don't accidentally enter single-child path when both exist.
      * Kills mutations where equality checks become true/false incorrectly.
      */
-    public void testRemoveNodeWithTwoChildren() {
+    public void testRemoveNodeWithTwoChildren() 
+    {
         BST<City> t = new BST<>();
-        t.insert(new City("M", 50, 50));      // Root - will have two children
-        t.insert(new City("L", 25, 25));      // Left child
-        t.insert(new City("R", 75, 75));      // Right child
-        t.insert(new City("LL", 10, 10));     // Left-left (so L has a child)
+        // Root - will have two children
+        t.insert(new City("M", 50, 50));      
+        // Left child
+        t.insert(new City("L", 25, 25));      
+        // Right child
+        t.insert(new City("R", 75, 75));      
+        // Left-left (so L has a child)
+        t.insert(new City("LL", 10, 10));     
         
         assertEquals(4, t.size());
         
@@ -345,12 +443,13 @@ public class BSTTest extends TestCase
     }
     
     /**
-     * Test to explicitly catch mutations in: inorderRec(n.left, level + 1, visit)
-     * 
-     * Mutation 1: level + 1 → level (removed increment)
-     * Mutation 2: level + 1 → level - 1 (wrong operation)
+     * Test to explicitly catch mutations in: 
+     * inorderRec(n.left, level + 1, visit)
+     * * Mutation 1: level + 1 -> level (removed increment)
+     * Mutation 2: level + 1 -> level - 1 (wrong operation)
      */
-    public void testInorderRecLevelIncrement() {
+    public void testInorderRecLevelIncrement() 
+    {
         BST<City> t = new BST<>();
         
         // Build a simple tree with known structure:
@@ -363,10 +462,11 @@ public class BSTTest extends TestCase
         t.insert(new City("M", 50, 50));
         t.insert(new City("K", 25, 25));
         t.insert(new City("R", 75, 75));
-        t.insert(new City("A", 10, 10));  // "A" < "K" so goes left of K
+        // "A" < "K" so goes left of K
+        t.insert(new City("A", 10, 10));  
         
-        java.util.List<String> nodes = new java.util.ArrayList<>();
-        java.util.List<Integer> levels = new java.util.ArrayList<>();
+        List<String> nodes = new ArrayList<>();
+        List<Integer> levels = new ArrayList<>();
         t.inorderWithLevels((lvl, c) -> {
             nodes.add(c.getName());
             levels.add(lvl);
@@ -387,16 +487,20 @@ public class BSTTest extends TestCase
     }
 
     /**
-     * Catch mutation: level + 1 → level (no increment)
+     * Catch mutation: level + 1 -> level (no increment)
      * This would make all descendants report same level as parent
      */
-    public void testLevelIncrementNotMissing() {
+    public void testLevelIncrementNotMissing() 
+    {
         BST<City> t = new BST<>();
         
         // Three-level chain: A -> B -> C
-        t.insert(new City("A", 50, 50));  // depth 0
-        t.insert(new City("B", 25, 25));  // depth 1
-        t.insert(new City("C", 10, 10));  // depth 2
+        // depth 0
+        t.insert(new City("A", 50, 50));  
+        // depth 1
+        t.insert(new City("B", 25, 25));  
+        // depth 2
+        t.insert(new City("C", 10, 10));  
         
         AtomicInteger maxLevel = new AtomicInteger(-1);
         t.inorderWithLevels((lvl, c) -> {
@@ -407,22 +511,29 @@ public class BSTTest extends TestCase
         
         // If mutation "level" (no +1) was applied, C would be at level 0 or 1
         // Correct: C should be at level 2
-        assertEquals("C should be at depth 2, not depth 0 or 1", 2, maxLevel.get());
+        assertEquals("C should be at depth 2, not depth 0 or 1", 2, 
+            maxLevel.get());
     }
 
     /**
-     * Catch mutation: level + 1 → level - 1 (decrement instead of increment)
+     * Catch mutation: level + 1 -> level - 1 (decrement instead of increment)
      * This would make deeper levels have LOWER level numbers
      */
-    public void testLevelMustIncrement() {
+    public void testLevelMustIncrement() 
+    {
         BST<City> t = new BST<>();
         
         // Build a balanced tree to test multiple levels
-        t.insert(new City("D", 50, 50));     // level 0
-        t.insert(new City("B", 25, 25));     // level 1
-        t.insert(new City("F", 75, 75));     // level 1
-        t.insert(new City("A", 10, 10));     // level 2
-        t.insert(new City("C", 30, 30));     // level 2
+        // level 0
+        t.insert(new City("D", 50, 50));     
+        // level 1
+        t.insert(new City("B", 25, 25));     
+        // level 1
+        t.insert(new City("F", 75, 75));     
+        // level 2
+        t.insert(new City("A", 10, 10));     
+        // level 2
+        t.insert(new City("C", 30, 30));     
         
         AtomicInteger minLevelForLeaves = new AtomicInteger(Integer.MAX_VALUE);
         t.inorderWithLevels((lvl, c) -> {
@@ -433,7 +544,8 @@ public class BSTTest extends TestCase
         });
         
         // Leaves should be at level 2, not level 0, 1, or negative
-        assertEquals("Leaves should be at level 2", 2, minLevelForLeaves.get());
+        assertEquals("Leaves should be at level 2", 2, 
+            minLevelForLeaves.get());
         assertTrue("Level should be positive", minLevelForLeaves.get() >= 0);
     }
 
@@ -441,16 +553,17 @@ public class BSTTest extends TestCase
      * Comprehensive test: verify exact level sequence matches tree depth
      * Catches any arithmetic error in level calculation
      */
-    public void testLevelSequenceCorrectness() {
+    public void testLevelSequenceCorrectness() 
+    {
         BST<City> t = new BST<>();
         
-        // Insert in order that builds a chain: E -> D -> C -> B -> A
+        // Insert in order that builds a chain: C -> B -> A
         // This creates a left-skewed tree (due to equals-left)
         t.insert(new City("C", 50, 50));
         t.insert(new City("B", 40, 40));
         t.insert(new City("A", 30, 30));
         
-        java.util.List<Integer> levels = new java.util.ArrayList<>();
+        List<Integer> levels = new ArrayList<>();
         t.inorderWithLevels((lvl, c) -> {
             levels.add(lvl);
         });
@@ -464,11 +577,11 @@ public class BSTTest extends TestCase
     
     /**
      * Test to catch mutation in: public boolean isEmpty() { return size == 0; }
-     * 
-     * Mutation: size == 0 replaced with true
+     * * Mutation: size == 0 replaced with true
      * Effect: isEmpty() would always return true, even when tree has nodes
      */
-    public void testIsEmptyMutation_AlwaysTrue() {
+    public void testIsEmptyMutationAlwaysTrue() 
+    {
         BST<City> t = new BST<>();
         
         // Empty tree should be empty
@@ -489,69 +602,80 @@ public class BSTTest extends TestCase
     }
 
     /**
-     * Test to catch mutation in: if (x == null) throw new IllegalArgumentException(...)
-     * 
-     * Mutation: x == null replaced with false (null check always fails)
+     * Test to catch mutation in: 
+     * if (x == null) throw new IllegalArgumentException(...)
+     * * Mutation: x == null replaced with false (null check always fails)
      * Effect: insert(null) would succeed instead of throwing exception
      */
-    public void testInsertNullMutation_CheckAlwaysFalse() {
+    public void testInsertNullMutationCheckAlwaysFalse() 
+    {
         BST<City> t = new BST<>();
         
         // Inserting null should throw IllegalArgumentException
         try {
             t.insert(null);
             fail("insert(null) should throw IllegalArgumentException");
-        } catch (IllegalArgumentException e) {
+        } 
+        catch (IllegalArgumentException e) {
             // Expected behavior
             assertTrue("Exception message should mention 'null'", 
                        e.getMessage().contains("null"));
         }
         
         // Tree should remain empty and size should be 0
-        assertTrue("Tree should still be empty after null insert attempt", t.isEmpty());
+        assertTrue("Tree should still be empty after null insert attempt", 
+            t.isEmpty());
         assertEquals("Size should remain 0", 0, t.size());
     }
 
     /**
-     * Additional defensive test: ensure isEmpty() correctly reflects size changes
+     * Additional defensive test: ensure isEmpty() 
+     * correctly reflects size changes
      * This catches any mutation to isEmpty() logic
      */
-    public void testIsEmptyTracksSize() {
+    public void testIsEmptyTracksSize() 
+    {
         BST<City> t = new BST<>();
         
         // Start empty
         assertEquals("Size should be 0", 0, t.size());
-        assertTrue("isEmpty should match size == 0", t.isEmpty() == (t.size() == 0));
+        assertTrue("isEmpty should match size == 0", 
+            t.isEmpty() == (t.size() == 0));
         
         // Add node
         t.insert(new City("X", 0, 0));
         assertEquals("Size should be 1", 1, t.size());
-        assertTrue("isEmpty should match size == 0", t.isEmpty() == (t.size() == 0));
+        assertTrue("isEmpty should match size == 0", 
+            t.isEmpty() == (t.size() == 0));
         
         // Add more nodes
         t.insert(new City("Y", 1, 1));
         t.insert(new City("Z", 2, 2));
         assertEquals("Size should be 3", 3, t.size());
-        assertTrue("isEmpty should match size == 0", t.isEmpty() == (t.size() == 0));
+        assertTrue("isEmpty should match size == 0", 
+            t.isEmpty() == (t.size() == 0));
         
         // Clear
         t.clear();
         assertEquals("Size should be 0", 0, t.size());
-        assertTrue("isEmpty should match size == 0", t.isEmpty() == (t.size() == 0));
+        assertTrue("isEmpty should match size == 0", 
+            t.isEmpty() == (t.size() == 0));
     }
 
     /**
      * Test that null insertion consistently fails regardless of tree state
      * Catches mutations where null check might be bypassed
      */
-    public void testInsertNullConsistentlyThrows() {
+    public void testInsertNullConsistentlyThrows() 
+    {
         BST<City> t = new BST<>();
         
         // Null should throw on empty tree
         try {
             t.insert(null);
             fail("insert(null) on empty tree should throw");
-        } catch (IllegalArgumentException e) {
+        } 
+        catch (IllegalArgumentException e) {
             // Expected
         }
         
@@ -563,7 +687,8 @@ public class BSTTest extends TestCase
         try {
             t.insert(null);
             fail("insert(null) on non-empty tree should throw");
-        } catch (IllegalArgumentException e) {
+        } 
+        catch (IllegalArgumentException e) {
             // Expected
         }
         
@@ -573,11 +698,12 @@ public class BSTTest extends TestCase
     
     /**
      * Test to catch mutation in: if (key == null) return false;
-     * 
-     * Mutation: key == null replaced with false
-     * Effect: null key check is never performed; remove(null) proceeds instead of returning false
+     * * Mutation: key == null replaced with false
+     * Effect: null key check is never performed; remove(null) 
+     * proceeds instead of returning false
      */
-    public void testRemoveNullKeyMutation() {
+    public void testRemoveNullKeyMutation() 
+    {
         BST<City> t = new BST<>();
         t.insert(new City("A", 1, 1));
         t.insert(new City("B", 2, 2));
@@ -587,19 +713,23 @@ public class BSTTest extends TestCase
         
         // Tree should be unchanged
         assertEquals("Size should still be 2", 2, t.size());
-        assertTrue("A should still be in tree", t.contains(new City("A", 1, 1)));
-        assertTrue("B should still be in tree", t.contains(new City("B", 2, 2)));
+        assertTrue("A should still be in tree", 
+            t.contains(new City("A", 1, 1)));
+        assertTrue("B should still be in tree", 
+            t.contains(new City("B", 2, 2)));
     }
 
     /**
      * Additional test: null removal on empty tree should return false
      * Catches mutation where null check is bypassed
      */
-    public void testRemoveNullOnEmptyTree() {
+    public void testRemoveNullOnEmptyTree() 
+    {
         BST<City> t = new BST<>();
         
         // Remove null from empty tree should return false
-        assertFalse("remove(null) on empty tree should return false", t.remove(null));
+        assertFalse("remove(null) on empty tree should return false", 
+            t.remove(null));
         
         // Tree should remain empty
         assertTrue("Tree should still be empty", t.isEmpty());
@@ -608,11 +738,11 @@ public class BSTTest extends TestCase
 
     /**
      * Test to catch mutation in: if (r.removed) { size = size - 1; }
-     * 
-     * Mutation: r.removed replaced with true
+     * * Mutation: r.removed replaced with true
      * Effect: size decremented even when node wasn't actually removed
      */
-    public void testRemoveSizeDecrementMutation() {
+    public void testRemoveSizeDecrementMutation() 
+    {
         BST<City> t = new BST<>();
         t.insert(new City("A", 1, 1));
         t.insert(new City("B", 2, 2));
@@ -637,7 +767,8 @@ public class BSTTest extends TestCase
      * Test: size tracking across multiple failed removals
      * Catches mutation where size decrements regardless of success
      */
-    public void testSizeTracksFailedRemovals() {
+    public void testSizeTracksFailedRemovals() 
+    {
         BST<City> t = new BST<>();
         t.insert(new City("A", 1, 1));
         
@@ -661,7 +792,8 @@ public class BSTTest extends TestCase
      * Test: size only decrements on successful removal
      * Interleaves successful and failed removals
      */
-    public void testSizeDecrementsOnlyOnSuccess() {
+    public void testSizeDecrementsOnlyOnSuccess() 
+    {
         BST<City> t = new BST<>();
         t.insert(new City("A", 1, 1));
         t.insert(new City("B", 2, 2));
@@ -683,7 +815,8 @@ public class BSTTest extends TestCase
         
         // Successful removal
         assertTrue("Remove existing B", t.remove(new City("B", 2, 2)));
-        assertEquals("Size should be 1 after second successful remove", 1, t.size());
+        assertEquals("Size should be 1 after second successful remove", 1, 
+            t.size());
         
         // Failed removal
         assertFalse("Remove non-existent Z", t.remove(new City("Z", 0, 0)));
@@ -694,7 +827,8 @@ public class BSTTest extends TestCase
      * Test: null key removal doesn't affect size
      * Specifically catches mutation where key==null check is bypassed
      */
-    public void testRemoveNullDoesNotAffectSize() {
+    public void testRemoveNullDoesNotAffectSize() 
+    {
         BST<City> t = new BST<>();
         t.insert(new City("A", 1, 1));
         t.insert(new City("B", 2, 2));
@@ -703,20 +837,24 @@ public class BSTTest extends TestCase
         
         // Multiple null removals should not change size
         t.remove(null);
-        assertEquals("Size unchanged after remove(null)", originalSize, t.size());
+        assertEquals("Size unchanged after remove(null)", originalSize, 
+            t.size());
         
         t.remove(null);
-        assertEquals("Size unchanged after second remove(null)", originalSize, t.size());
+        assertEquals("Size unchanged after second remove(null)", originalSize, 
+            t.size());
         
         t.remove(null);
-        assertEquals("Size unchanged after third remove(null)", originalSize, t.size());
+        assertEquals("Size unchanged after third remove(null)", originalSize, 
+            t.size());
     }
 
     /**
      * Comprehensive test: remove tracks both success and size correctly
      * Combines both mutations into one scenario
      */
-    public void testRemoveReturnValueAndSize() {
+    public void testRemoveReturnValueAndSize() 
+    {
         BST<City> t = new BST<>();
         City a = new City("A", 1, 1);
         City b = new City("B", 2, 2);
@@ -752,13 +890,15 @@ public class BSTTest extends TestCase
     }
     
     /**
-     * Test to catch mutation in contains: cur = (cmp < 0) ? cur.left : cur.right;
-     * 
-     * Mutation: cmp < 0 replaced with false
+     * Test to catch mutation in contains: cur = (cmp < 0) 
+     * ? cur.left : cur.right;
+     * * Mutation: cmp < 0 replaced with false
      * Effect: the left branch of ternary is never taken
-     *         cur always goes right, breaking binary search for nodes in left subtree
+     * cur always goes right, breaking binary search 
+     * for nodes in left subtree
      */
-    public void testContainsLeftSubtreeMutation() {
+    public void testContainsLeftSubtreeMutation() 
+    {
         BST<City> t = new BST<>();
         
         // Build a tree where we need to search the left subtree
@@ -775,26 +915,32 @@ public class BSTTest extends TestCase
         t.insert(new City("K", 30, 30));
         
         // These nodes are in the LEFT subtree and require cmp < 0 to find them
-        assertTrue("Should contain C (left of root)", t.contains(new City("C", 0, 0)));
-        assertTrue("Should contain A (left-left)", t.contains(new City("A", 0, 0)));
-        assertTrue("Should contain K (left-right)", t.contains(new City("K", 0, 0)));
+        assertTrue("Should contain C (left of root)", 
+            t.contains(new City("C", 0, 0)));
+        assertTrue("Should contain A (left-left)", 
+            t.contains(new City("A", 0, 0)));
+        assertTrue("Should contain K (left-right)", 
+            t.contains(new City("K", 0, 0)));
         
-        // If mutation makes cmp < 0 always false, left subtree nodes won't be found
     }
 
     /**
      * Test: verify contains works for nodes requiring left traversal
      * Directly tests the critical left branch
      */
-    public void testContainsRequiresLeftBranch() {
+    public void testContainsRequiresLeftBranch() 
+    {
         BST<City> t = new BST<>();
         
         // Build right-skewed tree at root level to force left searches
-        t.insert(new City("Z", 99, 99));    // root
-        t.insert(new City("A", 1, 1));      // must go left from Z
+        // root
+        t.insert(new City("Z", 99, 99));    
+        // must go left from Z
+        t.insert(new City("A", 1, 1));      
         
         // A is in the left subtree—if cmp < 0 is false, contains fails
-        assertTrue("Should find A (left of Z)", t.contains(new City("A", 0, 0)));
+        assertTrue("Should find A (left of Z)", 
+            t.contains(new City("A", 0, 0)));
         assertFalse("Should not find B", t.contains(new City("B", 0, 0)));
     }
 
@@ -802,7 +948,8 @@ public class BSTTest extends TestCase
      * Test: ensure contains correctly rejects non-existent left-side nodes
      * If mutation exists, false positives may occur
      */
-    public void testContainsRejectsNonExistentLeft() {
+    public void testContainsRejectsNonExistentLeft() 
+    {
         BST<City> t = new BST<>();
         
         t.insert(new City("M", 50, 50));
@@ -826,7 +973,8 @@ public class BSTTest extends TestCase
      * Test: deep left subtree search
      * Forces multiple left comparisons in a chain
      */
-    public void testContainsDeepLeftChain() {
+    public void testContainsDeepLeftChain() 
+    {
         BST<City> t = new BST<>();
         
         // Create a left-leaning chain: Z -> Y -> X -> W -> V
@@ -838,11 +986,16 @@ public class BSTTest extends TestCase
         
         assertEquals("Size should be 5", 5, t.size());
         
-        // All of these require left traversals; if cmp < 0 is false, they won't be found
-        assertTrue("Should find Y (1 left from root)", t.contains(new City("Y", 0, 0)));
-        assertTrue("Should find X (2 lefts from root)", t.contains(new City("X", 0, 0)));
-        assertTrue("Should find W (3 lefts from root)", t.contains(new City("W", 0, 0)));
-        assertTrue("Should find V (4 lefts from root)", t.contains(new City("V", 0, 0)));
+        // All of these require left traversals; 
+        // if cmp < 0 is false, they won't be found
+        assertTrue("Should find Y (1 left from root)", 
+            t.contains(new City("Y", 0, 0)));
+        assertTrue("Should find X (2 lefts from root)", 
+            t.contains(new City("X", 0, 0)));
+        assertTrue("Should find W (3 lefts from root)", 
+            t.contains(new City("W", 0, 0)));
+        assertTrue("Should find V (4 lefts from root)", 
+            t.contains(new City("V", 0, 0)));
         
         // These should not be found
         assertFalse("Should not find U", t.contains(new City("U", 0, 0)));
@@ -853,7 +1006,8 @@ public class BSTTest extends TestCase
      * Test: balanced tree with left and right searches
      * Ensures both branches work correctly
      */
-    public void testContainsMixedLeftRight() {
+    public void testContainsMixedLeftRight() 
+    {
         BST<City> t = new BST<>();
         
         // Balanced tree:
@@ -878,7 +1032,9 @@ public class BSTTest extends TestCase
         }
         
         // Test non-existent nodes are not found
-        for (String name : new String[]{"B", "D", "F", "G", "K", "L", "N", "O", "Q", "R", "T", "U", "V", "W", "X", "Y"}) {
+        String[] nonExistent = {"B", "D", "F", "G", "K", "L", "N", "O", "Q", 
+            "R", "T", "U", "V", "W", "X", "Y"};
+        for (String name : nonExistent) {
             assertFalse("Should not contain " + name, 
                         t.contains(new City(name, 0, 0)));
         }
@@ -888,23 +1044,27 @@ public class BSTTest extends TestCase
      * Comprehensive test: boundary cases for left branch
      * Nodes at the extreme left should require cmp < 0
      */
-    public void testContainsExtremeLefts() {
+    public void testContainsExtremeLefts() 
+    {
         BST<City> t = new BST<>();
         
         // Insert nodes with deliberately chosen names to force left branches
-        t.insert(new City("Z", 99, 99));  // root
-        t.insert(new City("M", 50, 50));  // left of Z
-        t.insert(new City("A", 1, 1));    // left of M
+        // root
+        t.insert(new City("Z", 99, 99));  
+        // left of Z
+        t.insert(new City("M", 50, 50));  
+        // left of M
+        t.insert(new City("A", 1, 1));    
         
         // Each requires a left branch from parent
-        assertTrue("Should find M (left of Z)", t.contains(new City("M", 0, 0)));
-        assertTrue("Should find A (left of M)", t.contains(new City("A", 0, 0)));
+        assertTrue("Should find M (left of Z)", 
+            t.contains(new City("M", 0, 0)));
+        assertTrue("Should find A (left of M)", 
+            t.contains(new City("A", 0, 0)));
         
         // Nodes between shouldn't be found
         assertFalse("Should not find B", t.contains(new City("B", 0, 0)));
         assertFalse("Should not find N", t.contains(new City("N", 0, 0)));
     }
-    
-    
-    
+       
 }
