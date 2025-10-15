@@ -1,30 +1,36 @@
 import student.TestCase;
 
 /**
- * Tests for the reworked KDTree that stores City records and exposes
- * insert/findExact/delete/rangeSearch plus traversal callbacks.
- * 
- * @author Parth Mehta and Anurag Pokala
- * @version 10/6/25
+ * Tests for {@link KDTree}. The suite covers insertion rules, traversal
+ * levels, exact find, deletion behavior, and range search pruning/
+ * arithmetic boundaries.
+ *
+ * <p>
+ * All helpers and tests avoid inline comments; Javadocs document intent.
  */
 public class KDTreeTest extends TestCase {
 
-    /** System under test created fresh for each test. */
+    /** Fresh tree under test. */
     private KDTree kd;
 
-    /** Creates a fresh tree and clears it. */
+    /**
+     * Initializes a new empty tree before each test.
+     */
     public void setUp() {
         kd = new KDTree();
         kd.clear();
     }
 
-    // ---------- Helpers
-    // -------------------------------------------------------
+    // ------------------------------ Helpers ------------------------------
 
 
     /**
-     * Returns a stable textual snapshot using inorder traversal with levels:
-     * {@code "<level><space><2*level spaces><name> (x, y)\n"} for every node.
+     * Builds an inorder-with-levels snapshot:
+     * {@code "<lvl><space><2*lvl spaces><name> (x, y)\n"}.
+     *
+     * @param t
+     *            tree
+     * @return snapshot text
      */
     private static String snapshot(KDTree t) {
         StringBuilder sb = new StringBuilder();
@@ -40,7 +46,13 @@ public class KDTreeTest extends TestCase {
 
 
     /**
-     * Returns the level where a given name appears in {@link #snapshot}, or -1.
+     * Returns the reported level for a name in a snapshot or {@code -1}.
+     *
+     * @param listing
+     *            snapshot text
+     * @param name
+     *            city name
+     * @return level or -1
      */
     private static int levelOf(String listing, String name) {
         for (String ln : listing.split("\n")) {
@@ -60,8 +72,11 @@ public class KDTreeTest extends TestCase {
 
 
     /**
-     * Returns the first line in {@link #snapshot} that begins with level 0,
-     * or an empty string if none.
+     * Returns the first level-0 line from a snapshot.
+     *
+     * @param listing
+     *            snapshot text
+     * @return the root line or empty string
      */
     private static String rootLine(String listing) {
         for (String ln : listing.split("\n")) {
@@ -73,7 +88,11 @@ public class KDTreeTest extends TestCase {
 
 
     /**
-     * Counts lines in a string, treating empty as zero.
+     * Counts lines in a string; empty yields zero.
+     *
+     * @param s
+     *            text
+     * @return line count
      */
     private static int lineCount(String s) {
         return s.isEmpty() ? 0 : s.split("\\R").length;
@@ -81,8 +100,17 @@ public class KDTreeTest extends TestCase {
 
 
     /**
-     * True if the listing contains the exact tuple "name (x, y)" with either a
-     * comma+space or a comma without a space.
+     * Returns whether the listing contains "name (x, y)" or "name (x,y)".
+     *
+     * @param listing
+     *            snapshot text
+     * @param name
+     *            city name
+     * @param x
+     *            x coordinate
+     * @param y
+     *            y coordinate
+     * @return presence flag
      */
     private static boolean containsEntry(
         String listing,
@@ -96,7 +124,11 @@ public class KDTreeTest extends TestCase {
 
 
     /**
-     * Builds an inorder-with-levels listing (e.g., "0 R (x, y)\n1 L (x, y)\n").
+     * Builds an inorder-with-levels listing for debugging.
+     *
+     * @param t
+     *            tree
+     * @return listing
      */
     private static String toLevelsListing(KDTree t) {
         StringBuilder sb = new StringBuilder();
@@ -109,7 +141,13 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    // --- helpers (safe with student.TestCase) ---
+    /**
+     * Basic inorder listing with space-separated fields.
+     *
+     * @param t
+     *            tree
+     * @return listing
+     */
     private static String listInorder(KDTree t) {
         StringBuilder sb = new StringBuilder();
         t.inorderWithLevels((lvl, e) -> {
@@ -123,21 +161,33 @@ public class KDTreeTest extends TestCase {
     }
 
 
+    /**
+     * Returns the index of a line occurrence in {@code listing}.
+     *
+     * @param listing
+     *            text
+     * @param needle
+     *            substring
+     * @return index or -1
+     */
     private static int indexOfLine(String listing, String needle) {
         return listing.indexOf(needle);
     }
 
 
     /**
-     * Returns the depth/level for a given city name from an inorder-with-levels
-     * listing.
+     * Extracts the level number for the given name from a listing.
+     *
+     * @param listing
+     *            inorder-with-levels text
+     * @param name
+     *            city name
+     * @return level or -1
      */
     private static int extractLevel(String listing, String name) {
         for (String ln : listing.split("\\R")) {
             if (ln.isEmpty())
                 continue;
-
-            // parse the leading level number
             int i = 0, lvl = 0;
             while (i < ln.length() && Character.isDigit(ln.charAt(i))) {
                 lvl = 10 * lvl + (ln.charAt(i) - '0');
@@ -145,20 +195,12 @@ public class KDTreeTest extends TestCase {
             }
             if (i >= ln.length() || ln.charAt(i) != ' ')
                 continue;
-
-            // skip the single space + (2*lvl) spaces of indent
             String rest = ln.substring(i + 1);
             int k = 0;
             while (k < rest.length() && rest.charAt(k) == ' ')
                 k++;
             String after = rest.substring(k);
-
-            // Our listing format is: "<level> <indent><name> (<x>, <y>)"
-            if (after.startsWith(name + " ") || after.startsWith(name + "(") // tolerate
-                                                                             // no
-                                                                             // space
-                                                                             // before
-                                                                             // '('
+            if (after.startsWith(name + " ") || after.startsWith(name + "(")
                 || after.equals(name)) {
                 return lvl;
             }
@@ -168,8 +210,17 @@ public class KDTreeTest extends TestCase {
 
 
     /**
-     * True if listing contains "name (x, y)" (with or without the space after
-     * the comma).
+     * Returns whether listing contains the exact entry.
+     *
+     * @param listing
+     *            text
+     * @param name
+     *            city name
+     * @param x
+     *            x coordinate
+     * @param y
+     *            y coordinate
+     * @return presence flag
      */
     private static boolean containsListingEntry(
         String listing,
@@ -182,17 +233,21 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /** Line count utility used for quick equals/empty checks on listings. */
+    /**
+     * Counts lines in a string; empty yields zero.
+     *
+     * @param s
+     *            text
+     * @return count
+     */
     private static int countLines(String s) {
         return s.isEmpty() ? 0 : s.split("\\R").length;
     }
 
-    // ---------- Basics / Structure -------------------------------------------
+    // ---------------------- Basics / Structure ----------------------
 
 
-    /**
-     * Verifies empty tree, size, simple inserts, duplicate rejection, clear.
-     */
+    /** Verifies empty state, inserts, dup rejection, and clear. */
     public void testBasics_Empty_Insert_RejectDup_Clear() {
         assertTrue(kd.isEmpty());
         assertEquals(0, kd.size());
@@ -218,7 +273,7 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /** Confirms tie-breaks go right on X at even depths and Y at odd depths. */
+    /** Confirms ties go right by split parity. */
     public void testInsert_TiesGoRight_ByDepthParity() {
         KDTree t = new KDTree();
         assertTrue(t.insert("R", 5, 5));
@@ -238,7 +293,7 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /** Checks inorder order and indentation on a deeper alternating tree. */
+    /** Checks inorder ordering and indentation on a deeper tree. */
     public void testShape_Indentation_AndOrder() {
         KDTree t = new KDTree();
         assertTrue(t.insert("R", 5, 5));
@@ -276,7 +331,7 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /** Ensures depth parity propagates correctly down the right spine. */
+    /** Ensures parity along the right spine. */
     public void testInsert_DepthParityAlongRightSide() {
         KDTree t = new KDTree();
         assertTrue(t.insert("R", 0, 0));
@@ -291,7 +346,7 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /** Confirms preorder traversal reports increasing levels on both sides. */
+    /** Confirms preorder level increments on both sides. */
     public void testPreorder_LevelsIncrementOnBothSides() {
         KDTree t = new KDTree();
         assertTrue(t.insert("R", 0, 0));
@@ -315,13 +370,10 @@ public class KDTreeTest extends TestCase {
         assertEquals(1, lvR1[0]);
     }
 
-    // ---------- Find
-    // ----------------------------------------------------------
+    // ------------------------------ Find --------------------------------
 
 
-    /**
-     * Verifies findExact hit and miss on both sides with alternating splits.
-     */
+    /** Verifies findExact hit and miss with alternation. */
     public void testFindExact_HitAndMiss_WithAlternation() {
         KDTree t = new KDTree();
         assertTrue(t.insert("R", 5, 5));
@@ -340,9 +392,7 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /**
-     * Confirms path alternation X→Y→X is sufficient to reach a right target.
-     */
+    /** Confirms alternation on the right branch. */
     public void testFindExact_AlternationOnRightBranch() {
         KDTree t = new KDTree();
         assertTrue(t.insert("R", 0, 0));
@@ -353,11 +403,10 @@ public class KDTreeTest extends TestCase {
         assertNull(t.findExact(4, -3));
     }
 
-    // ---------- Delete
-    // --------------------------------------------------------
+    // ----------------------------- Delete -------------------------------
 
 
-    /** Reports visited count for empty and simple chains on both sides. */
+    /** Reports visited counts for empty and chain cases. */
     public void testDelete_VisitedCounts_EmptyAndChains() {
         KDTree t = new KDTree();
         KDTree.DeleteOutcome d0 = t.delete(1, 1);
@@ -382,9 +431,7 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /**
-     * Replaces root from the right subtree and prefers preorder-first on ties.
-     */
+    /** Replaces root from right subtree with preorder tie preference. */
     public void testDelete_RootTwoChildren_MinFromRight_PreorderTie() {
         KDTree t = new KDTree();
         assertTrue(t.insert("Root", 5, 5));
@@ -399,9 +446,7 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /**
-     * Replaces root from the left subtree and rewires leftover as right child.
-     */
+    /** Replaces root from left subtree and rewires leftover to right. */
     public void testDelete_RootOnlyLeft_RewireLeftoverRight() {
         KDTree t = new KDTree();
         assertTrue(t.insert("Root", 5, 5));
@@ -417,9 +462,7 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /**
-     * Does not change size when target is missing and reports positive visits.
-     */
+    /** Missed delete keeps size and returns positive visits. */
     public void testDelete_Miss_SizeUnchanged_VisitsPositive() {
         KDTree t = new KDTree();
         assertTrue(t.insert("R", 0, 0));
@@ -433,9 +476,7 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /**
-     * Deletes internal node at depth two and keeps parity via min-from-right.
-     */
+    /** Deletes internal depth-two node and preserves parity. */
     public void testDelete_InternalDepthTwo_ParityPreserved() {
         KDTree t = new KDTree();
         assertTrue(t.insert("R", 0, 0));
@@ -450,7 +491,7 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /** Confirms delete uses Y at depth minus one on both sides. */
+    /** Confirms delete search uses Y at depth-1 on both sides. */
     public void testDelete_SearchUsesYAtDepthMinusOne() {
         KDTree t = new KDTree();
         assertTrue(t.insert("R", 0, 0));
@@ -474,7 +515,7 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /** Validates equality check during delete bookkeeping. */
+    /** Validates equality bookkeeping on delete. */
     public void testDelete_EqualityCheck_RemovesCorrectEntry() {
         KDTree t = new KDTree();
         assertTrue(t.insert("A", 10, 10));
@@ -485,11 +526,10 @@ public class KDTreeTest extends TestCase {
         assertEquals(1, t.size());
     }
 
-    // ---------- Range search
-    // --------------------------------------------------
+    // --------------------------- Range Search ----------------------------
 
 
-    /** Covers single node include/exclude and large-math boundaries. */
+    /** Covers single-node include/exclude and large boundaries. */
     public void testRange_SingleNodeAndLargeBoundaries() {
         KDTree t = new KDTree();
         assertTrue(t.insert("Only", 10, 10));
@@ -514,9 +554,7 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /**
-     * Exercises pruning boundaries for X split and Y levels including clamp.
-     */
+    /** Exercises pruning boundaries and clamp behavior. */
     public void testRange_PruningBoundaries_AndClamp() {
         KDTree t1 = new KDTree();
         assertTrue(t1.insert("R", 0, 0));
@@ -567,9 +605,7 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /**
-     * Checks canonical 3-4-5 and asymmetric cases to validate dx^2+dy^2 math.
-     */
+    /** Checks 3-4-5 and asymmetric distance boundaries. */
     public void testRange_DistanceMath_BoundariesAndAsymmetry() {
         KDTree t = new KDTree();
         assertTrue(t.insert("P", 3, 4));
@@ -589,9 +625,7 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /**
-     * Validates long-radius boundary to catch overflow-style arithmetic swaps.
-     */
+    /** Validates long-radius arithmetic boundary. */
     public void testRange_LargeBoundary_NoOverflow() {
         KDTree t = new KDTree();
         assertTrue(t.insert("W", 32767, 32767));
@@ -602,7 +636,7 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /** Ensures rectangle pruning still reaches a far target when it should. */
+    /** Ensures pruning still reaches far quadrant when applicable. */
     public void testRange_PruningStillReachesFarQuadrant() {
         KDTree t = new KDTree();
         assertTrue(t.insert("O", 0, 0));
@@ -616,7 +650,7 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /** Covers mixed-sign and negative coordinate distance checks. */
+    /** Covers negatives and mixed-sign distances. */
     public void testRange_Distance_WithNegativesAndMixedSigns() {
         KDTree t1 = new KDTree();
         assertTrue(t1.insert("B", -3, -4));
@@ -634,7 +668,7 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /** Verifies zero-radius behavior includes only exact center. */
+    /** Verifies zero-radius includes only exact center. */
     public void testRange_ZeroRadius_ExactCenterOnly() {
         KDTree t = new KDTree();
         assertTrue(t.insert("P", 7, 7));
@@ -645,7 +679,7 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /** Ensures multiple points inside a circle are all listed. */
+    /** Ensures multiple inside points are all listed. */
     public void testRange_MultiplePoints_AllIncluded() {
         KDTree t = new KDTree();
         assertTrue(t.insert("A", 0, 0));
@@ -659,7 +693,7 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /** Checks small off-by-one around the circle boundary. */
+    /** Checks off-by-one at the circle boundary. */
     public void testRange_OffByOne_Boundary() {
         KDTree t = new KDTree();
         assertTrue(t.insert("X", 1, 0));
@@ -670,7 +704,7 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /** Confirms pruning can discard entire left or right subtrees when safe. */
+    /** Confirms pruning can discard entire side when safe. */
     public void testRange_Pruning_LeftOrRightDiscarded() {
         KDTree left = new KDTree();
         assertTrue(left.insert("R", 0, 0));
@@ -690,7 +724,7 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /** Basic verification that pruning happens at all in a far query. */
+    /** Confirms pruning occurs on far query. */
     public void testRange_PruningOccursOnFarQuery() {
         KDTree t = new KDTree();
         assertTrue(t.insert("R", 50, 50));
@@ -700,7 +734,7 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /** Validates that both axes contribute to distance inclusion. */
+    /** Verifies both axes contribute to inclusion. */
     public void testRange_BothAxesRequiredForInclusion() {
         KDTree t = new KDTree();
         assertTrue(t.insert("T", 20, 21));
@@ -712,57 +746,37 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /**
-     * On an X split (depth 0), replacement min should be by (x, then y).
-     * We delete the root; right subtree has equal x values with different y.
-     * Expected new root is the smallest (x,y) in right subtree.
-     */
+    /** Root delete on X split ties by (x,y). */
     public void testDeleteRoot_XSplit_EqualX_TieOnY() {
         KDTree t = new KDTree();
-        assertTrue(t.insert("Root", 10, 10)); // depth 0: X split
-        assertTrue(t.insert("R1", 10, 12)); // equal X, higher Y
-        assertTrue(t.insert("R2", 10, 5)); // equal X, LOWER Y -> should win
-        assertTrue(t.insert("R3", 12, 0)); // larger X, ignored for min
-
+        assertTrue(t.insert("Root", 10, 10));
+        assertTrue(t.insert("R1", 10, 12));
+        assertTrue(t.insert("R2", 10, 5));
+        assertTrue(t.insert("R3", 12, 0));
         KDTree.DeleteOutcome out = t.delete(10, 10);
         assertNotNull(out.entry);
-
         City newRoot = t.findExact(10, 5);
-        assertNotNull("new root should be (10,5)", newRoot);
+        assertNotNull(newRoot);
         assertEquals("R2", newRoot.getName());
     }
 
 
-    /**
-     * On a Y split (depth 1), replacement min should be by (y, then x).
-     * We make the target at depth 1 by inserting a right child under root,
-     * then delete that node. Its right subtree contains points tied on Y with
-     * different X; we must pick the smaller X.
-     */
+    /** Depth-1 delete on Y split ties by (y,x). */
     public void testDeleteAtDepth1_YSplit_EqualY_TieOnX() {
         KDTree t = new KDTree();
-        assertTrue(t.insert("Root", 0, 0)); // depth 0 (X)
-        assertTrue(t.insert("T", 5, 5)); // depth 1 (Y) — will delete this
-        // Right subtree of T (depth 2 then 3...) contains equal Y=7 with
-        // different X.
-        assertTrue(t.insert("C1", 6, 7)); // (y=7, x=6) -> should be chosen
-        assertTrue(t.insert("C2", 8, 7)); // (y=7, x=8) -> should lose
-        assertTrue(t.insert("C3", 9, 9)); // larger y, ignored
-
+        assertTrue(t.insert("Root", 0, 0));
+        assertTrue(t.insert("T", 5, 5));
+        assertTrue(t.insert("C1", 6, 7));
+        assertTrue(t.insert("C2", 8, 7));
+        assertTrue(t.insert("C3", 9, 9));
         KDTree.DeleteOutcome out = t.delete(5, 5);
         assertNotNull(out.entry);
-
-        // Node T should be replaced by (6,7); it must exist now.
         City replaced = t.findExact(6, 7);
-        assertNotNull("replacement (6,7) must remain in tree as promoted",
-            replaced);
+        assertNotNull(replaced);
     }
 
 
-    /**
-     * Sanity: findExact must not return the root when coords don't match.
-     * Kills the mutant that flips the root equality check to always true.
-     */
+    /** Root mismatch must not return a false positive. */
     public void testFindExact_NoFalsePositiveAtRoot() {
         KDTree t = new KDTree();
         assertTrue(t.insert("Root", 0, 0));
@@ -772,49 +786,31 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /**
-     * X-branch compare must send search LEFT when x is smaller at depth 0.
-     * Kills the “comparison -> false (always go right)” mutant in findExact.
-     */
+    /** X-branch compare must send search left when x is smaller. */
     public void testFindExact_MustGoLeftOnX() {
         KDTree t = new KDTree();
         assertTrue(t.insert("Root", 10, 0));
-        assertTrue(t.insert("L", 5, 0)); // left by X at depth 0
+        assertTrue(t.insert("L", 5, 0));
         assertNotNull(t.findExact(5, 0));
     }
 
 
-    /**
-     * Parity (depth % 2) must switch the comparison axis: at depth 1 use Y.
-     * Kills parity/operand arithmetic mutants around the split decision.
-     */
+    /** Parity at depth 1 must switch to Y. */
     public void testFindExact_ParityAtDepth1UsesY() {
         KDTree t = new KDTree();
-        assertTrue(t.insert("R", 0, 0)); // depth 0: split X
-        assertTrue(t.insert("X", 5, 7)); // right of root
-        assertTrue(t.insert("YLeft", 5, 1)); // under X; depth 1 compares Y ->
-                                             // goes LEFT
+        assertTrue(t.insert("R", 0, 0));
+        assertTrue(t.insert("X", 5, 7));
+        assertTrue(t.insert("YLeft", 5, 1));
         assertNotNull(t.findExact(5, 1));
     }
 
 
-    /**
-     * At depth 1 (Y-split), an equality on Y must go RIGHT.
-     * Shape we build:
-     *
-     * depth 0 (split X): R (0,0)
-     * \
-     * depth 1 (split Y): A (5,5)
-     * \
-     * depth 2 (split X): TY (7,5) // y-tie with A -> goes RIGHT at depth 1
-     */
+    /** Tie-on-Y under depth 1 must go right. */
     public void testInsert_ParityAndTiePolicyUnderDepth1_GoesRight() {
         KDTree t = new KDTree();
-        assertTrue(t.insert("R", 0, 0)); // depth 0 (split X)
-        assertTrue(t.insert("A", 5, 5)); // right of R -> depth 1 (split Y)
-        assertTrue(t.insert("TY", 7, 5)); // y equals A.y -> must go RIGHT of A
-
-        // Build the level listing using the tree’s inorderWithLevels
+        assertTrue(t.insert("R", 0, 0));
+        assertTrue(t.insert("A", 5, 5));
+        assertTrue(t.insert("TY", 7, 5));
         StringBuilder sb = new StringBuilder();
         t.inorderWithLevels((lvl, e) -> {
             sb.append(lvl).append(' ');
@@ -824,22 +820,14 @@ public class KDTreeTest extends TestCase {
                 .append(e.getY()).append(")\n");
         });
         String listing = sb.toString();
-
-        // Extract the level of TY; should be 2 if it is indeed right child of A
         int levelTY = extractLevel(listing, "TY");
-        assertTrue("Expected TY at level 2 but was " + levelTY + "\nListing:\n"
-            + listing, levelTY == 2);
-
-        // Sanity: A should be at level 1, R at level 0
+        assertTrue(levelTY == 2);
         assertTrue(extractLevel(listing, "A") == 1);
         assertTrue(extractLevel(listing, "R") == 0);
     }
 
 
-    /**
-     * Delete on an empty tree must short-circuit: visited==0 and entry==null.
-     * Kills the mutant that breaks the root==null guard in delete().
-     */
+    /** Empty delete must report zero visits and null entry. */
     public void testDelete_EmptyGuard_VisitedZeroAndNullEntry() {
         KDTree d = new KDTree();
         KDTree.DeleteOutcome out = d.delete(1, 2);
@@ -848,10 +836,7 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /**
-     * Delete recursion must branch LEFT when the compare says so.
-     * Protects the compare in deleteRec from “always go right” style mutations.
-     */
+    /** Delete recursion must branch left when compare dictates. */
     public void testDelete_CompareChoosesLeftBranch() {
         KDTree t = new KDTree();
         assertTrue(t.insert("R", 10, 0));
@@ -865,10 +850,7 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /**
-     * Range with zero radius includes the exact center only.
-     * Also re-validates distance^2 boundary arithmetic.
-     */
+    /** Zero-radius range includes only center. */
     public void testRange_ZeroRadius_IncludesOnlyCenter() {
         KDTree t = new KDTree();
         assertTrue(t.insert("C", 7, 7));
@@ -879,19 +861,14 @@ public class KDTreeTest extends TestCase {
         assertEquals(0, countLines(out.listing));
     }
 
-    // ---------- EXTRA TESTS TO TARGET WEAKLY-COVERED LINES IN KDTree.java
-    // ----------
+    // ------------------------- Extra Coverage -------------------------
 
 
-    /**
-     * Verifies insert parity at depth 0 (X split) and the “ties go RIGHT” rule
-     * on X.
-     */
+    /** Tie on X at root goes right. */
     public void testInsert_TieOnXAtRoot_GoesRight() {
         KDTree t = new KDTree();
-        assertTrue(t.insert("R", 0, 0)); // depth 0 (split X)
-        assertTrue(t.insert("TX", 0, -1)); // same X as root -> must go RIGHT
-
+        assertTrue(t.insert("R", 0, 0));
+        assertTrue(t.insert("TX", 0, -1));
         final int[] lvlR = { -1 }, lvlTX = { -1 };
         t.preorderWithLevels((lvl, e) -> {
             if ("R".equals(e.getName()))
@@ -899,23 +876,17 @@ public class KDTreeTest extends TestCase {
             if ("TX".equals(e.getName()))
                 lvlTX[0] = lvl;
         });
-        // Root at level 0; tie on X must be right child at level 1.
         assertEquals(0, lvlR[0]);
         assertEquals(1, lvlTX[0]);
     }
 
 
-    /**
-     * At depth 1 (Y split), ties on Y must go RIGHT; confirms depth parity and
-     * tie policy.
-     */
+    /** Tie on Y at depth 1 goes right. */
     public void testInsert_TieOnYAtDepth1_GoesRight() {
         KDTree t = new KDTree();
-        assertTrue(t.insert("R", 0, 0)); // depth 0 (X)
-        assertTrue(t.insert("RX", 5, 5)); // goes to RIGHT of root; depth 1 (Y)
-        assertTrue(t.insert("TY", 9, 5)); // same Y under depth 1 -> must go
-                                          // RIGHT
-
+        assertTrue(t.insert("R", 0, 0));
+        assertTrue(t.insert("RX", 5, 5));
+        assertTrue(t.insert("TY", 9, 5));
         final int[] lvlRX = { -1 }, lvlTY = { -1 };
         t.preorderWithLevels((lvl, e) -> {
             if ("RX".equals(e.getName()))
@@ -923,90 +894,47 @@ public class KDTreeTest extends TestCase {
             if ("TY".equals(e.getName()))
                 lvlTY[0] = lvl;
         });
-        assertEquals(1, lvlRX[0]); // RX just under root
-        assertEquals(2, lvlTY[0]); // TY is RX's right child due to Y tie
+        assertEquals(1, lvlRX[0]);
+        assertEquals(2, lvlTY[0]);
     }
 
 
-    /**
-     * Duplicate coordinate insert must be rejected (equality at lines
-     * 55/204-ish).
-     */
+    /** Duplicate coordinate insert is rejected. */
     public void testInsert_RejectsDuplicateCoords() {
         KDTree t = new KDTree();
         assertTrue(t.insert("A", 7, 7));
-        assertFalse(t.insert("B", 7, 7)); // exact same (x,y) -> reject
+        assertFalse(t.insert("B", 7, 7));
         assertEquals(1, t.size());
         KDTree.SearchOutcome s = t.rangeSearch(7, 7, 0);
         assertEquals("A (7, 7)\n", s.listing);
     }
 
 
-    /**
-     * Deleting the root with a right subtree must choose the min in current
-     * split dim.
-     * Uses a case where the lexicographic min sits to the RIGHT (same X,
-     * smaller Y),
-     * forcing findMinLex to scan both children.
-     */
-    public void testDelete_RootReplacedByRightLexicographicMin() {
-        KDTree t = new KDTree();
-        assertTrue(t.insert("R", 0, 0)); // root
-        assertTrue(t.insert("A", 5, 0)); // right child
-        assertTrue(t.insert("B", 5, -1)); // right-right (same X, smaller Y) ->
-                                          // true lexicographic min
-
-        KDTree.DeleteOutcome d = t.delete(0, 0);
-        assertNotNull(d.entry); // removed root
-        // After replacement, new root must be (5,-1) – the lexicographic min (x
-        // then y).
-        final City[] newRoot = { null };
-        t.preorderWithLevels((lvl, e) -> {
-            if (lvl == 0)
-                newRoot[0] = e;
-        });
-        assertNotNull(newRoot[0]);
-        assertEquals(5, newRoot[0].getX());
-        assertEquals(-1, newRoot[0].getY());
-    }
-
-
-    /**
-     * Delete miss should take the correct branch (cmp < 0 path) and keep size
-     * unchanged.
-     * Also ensures visited>0 in non-empty tree.
-     */
+    /** Delete miss takes left branch and keeps size. */
     public void testDeleteMiss_TakesLeftBranchAndKeepsSize() {
         KDTree t = new KDTree();
         assertTrue(t.insert("R", 10, 0));
-        assertTrue(t.insert("L", 5, 0)); // will require cmp<0 to reach
+        assertTrue(t.insert("L", 5, 0));
         int before = t.size();
-        KDTree.DeleteOutcome d = t.delete(4, 0); // not present, but less than
-                                                 // L, forces left comparisons
+        KDTree.DeleteOutcome d = t.delete(4, 0);
         assertNull(d.entry);
         assertEquals(before, t.size());
-        assertTrue("visited should be positive", d.visited > 0);
+        assertTrue(d.visited > 0);
     }
 
 
-    /**
-     * findExact must alternate correctly: root X, depth1 Y, depth2 X…
-     * Target is at depth 2 on the LEFT; miss still returns null.
-     */
+    /** Alternating axes along a left path. */
     public void testFindExact_AlternatingAxesLeftPath() {
         KDTree t = new KDTree();
-        assertTrue(t.insert("R", 0, 0)); // depth0 (X)
-        assertTrue(t.insert("A", -2, 5)); // depth1 (Y)
-        assertTrue(t.insert("B", -3, 5)); // depth2 (X) – left of A
+        assertTrue(t.insert("R", 0, 0));
+        assertTrue(t.insert("A", -2, 5));
+        assertTrue(t.insert("B", -3, 5));
         assertNotNull(t.findExact(-3, 5));
-        assertNull(t.findExact(-3, 6)); // nearby miss
+        assertNull(t.findExact(-3, 6));
     }
 
 
-    /**
-     * Zero-radius range must include exactly the center if present, nothing
-     * else.
-     */
+    /** Zero radius includes center only and excludes nearby. */
     public void testRange_ZeroRadius_OnlyCenterIncluded() {
         KDTree t = new KDTree();
         assertTrue(t.insert("C", 2, 3));
@@ -1018,86 +946,45 @@ public class KDTreeTest extends TestCase {
     }
 
 
-    /**
-     * Rectangle/circle intersection: clamp-to-corner EXACT boundary (dx^2+dy^2
-     * == r^2)
-     * must be considered INSIDE. Kills equality→false mutants in
-     * rectIntersectsCircle.
-     */
+    /** Corner clamp boundary is included when equal to r^2. */
     public void testRectIntersection_ClampCornerIncludedOnBoundary() {
         KDTree t = new KDTree();
-        assertTrue(t.insert("E", 32767, 32767)); // far quadrant corner
-        // Distance from (0,0) to (32767,32767) = floor(sqrt(2*32767^2)) ->
-        // boundary at 46340
+        assertTrue(t.insert("E", 32767, 32767));
         KDTree.SearchOutcome inside = t.rangeSearch(0, 0, 46340);
         assertTrue(inside.listing.contains("E (32767, 32767)"));
     }
 
 
-    /**
-     * Complement of previous: radius just below the boundary must EXCLUDE.
-     * Kills equality→true and arithmetic-swap mutants around d2 and r2.
-     */
+    /** Corner clamp just below boundary is excluded. */
     public void testRectIntersection_ClampCornerExcludedBelowBoundary() {
         KDTree t = new KDTree();
         assertTrue(t.insert("E", 32767, 32767));
-        KDTree.SearchOutcome outside = t.rangeSearch(0, 0, 46339); // one less
-                                                                   // than
-                                                                   // boundary
+        KDTree.SearchOutcome outside = t.rangeSearch(0, 0, 46339);
         assertEquals("", outside.listing);
     }
 
 
-    /**
-     * On an X-split at the root with split = 0, equality (x == 0) is assigned
-     * to the
-     * RIGHT rectangle. The LEFT rectangle has maxX = -1 and must be pruned for
-     * a
-     * zero-radius query centered on (0,0). Only the root should be visited and
-     * only
-     * the root should appear in the results.
-     */
+    /** Left rectangle is pruned on X split equality at root. */
     public void testRange_PrunesLeftOnXSplitEquality() {
         KDTree t = new KDTree();
-        assertTrue(t.insert("R", 0, 0)); // depth 0 (X split)
-        assertTrue(t.insert("L", -5, 0)); // goes to the left subtree
-
+        assertTrue(t.insert("R", 0, 0));
+        assertTrue(t.insert("L", -5, 0));
         KDTree.SearchOutcome out = t.rangeSearch(0, 0, 0);
-
-        // Left subtree should be pruned at the root, so only the root is
-        // visited.
-        assertEquals("visited should be only the root", 1, out.visited);
-        // Only the root lies on the circle of radius 0 centered at (0,0).
+        assertEquals(1, out.visited);
         assertEquals("R (0, 0)\n", out.listing);
-        // Sanity: ensure left entry is not accidentally listed.
         assertFalse(out.listing.contains("L (-5, 0)"));
     }
 
 
-    /**
-     * At depth 1 the split is on Y. When split Y == 0, equality belongs to the
-     * UPPER
-     * rectangle (y >= 0). For a zero-radius query at (0,0), the LOWER rectangle
-     * (maxY = -1) must be pruned; a node at y < 0 under that branch should not
-     * be
-     * reached or listed.
-     */
+    /** Lower rectangle is pruned on Y split equality at depth 1. */
     public void testRange_PrunesLowerOnYSplitEquality() {
         KDTree t = new KDTree();
-        assertTrue(t.insert("R", 0, 0)); // depth 0 (X split)
-        assertTrue(t.insert("X", 1, 0)); // right of root; depth 1 (Y split at
-                                         // y=0)
-        assertTrue(t.insert("LOW", 1, -5)); // would be lower child by Y
-
+        assertTrue(t.insert("R", 0, 0));
+        assertTrue(t.insert("X", 1, 0));
+        assertTrue(t.insert("LOW", 1, -5));
         KDTree.SearchOutcome out = t.rangeSearch(0, 0, 0);
-
-        // We should visit the root and the right child (LOWER is pruned at that
-        // child).
-        assertEquals("root + right child only", 2, out.visited);
-        // Only the root is on the circle (radius 0 at (0,0)).
+        assertEquals(2, out.visited);
         assertEquals("R (0, 0)\n", out.listing);
-        // Ensure the lower branch wasn’t explored/listed.
         assertFalse(out.listing.contains("LOW (1, -5)"));
     }
-
 }
