@@ -1,6 +1,18 @@
 
 /**
- * {Project Description Here}
+ * Mini GIS playground used for testing data structures.
+ * 
+ * GISDB stores cities (name, x, y) in two synced indexes:
+ *   • KDTree by coordinates (insert/find/delete/range; ties go right).
+ *   • BST by name (inorder print; remove exact (name,x,y) triples).
+ *
+ * Key ops:
+ *   insert, delete(x,y) → "visited\nname", delete(name) → lines "name (x, y)",
+ *   info(x,y)/info(name), search(x,y,r) → matches then visit count,
+ *   debug() → KD inorder; print() → BST inorder.
+ *
+ * Coordinates are validated (0..32767). This main class is a no-op entry point
+ * for automated tests.
  */
 
 import java.io.IOException;
@@ -8,8 +20,9 @@ import java.io.IOException;
 /**
  * The class containing the main method.
  *
- * @author Parth Mehta
- * @version 10/6/25
+ *@author Parth Mehta (pmehta24)
+ * @author Anurag Pokala (anuragp34)
+ * @version 2025-10-06
  */
 
 // On my honor:
