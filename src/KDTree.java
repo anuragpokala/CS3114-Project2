@@ -278,8 +278,14 @@ class KDTree {
         }
     }
 
-    private boolean rectIntersectsCircle(int minX, int minY, int maxX, int maxY,
-                                         int cx, int cy, long r2) {
+    /** Determines whether an axis-aligned rectangle intersects (or touches) a circle. */
+    private boolean rectIntersectsCircle(
+        int minX, int minY, int maxX, int maxY,
+        int cx, int cy, long r2) {
+
+        if (minX > maxX) { int t = minX; minX = maxX; maxX = t; }
+        if (minY > maxY) { int t = minY; minY = maxY; maxY = t; }
+
         int nx = clamp(cx, minX, maxX);
         int ny = clamp(cy, minY, maxY);
         long dx = (long)cx - (long)nx;
@@ -287,6 +293,7 @@ class KDTree {
         long d2 = dx * dx + dy * dy;
         return d2 <= r2;
     }
+
 
     private int clamp(int v, int lo, int hi) {
         if (v < lo) return lo;
