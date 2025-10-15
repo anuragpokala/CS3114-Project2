@@ -8,6 +8,10 @@
  * - search(x,y,r): circle range listing then visit count; "" on bad r
  * - debug(): inorder of kd tree (level + 2*level spaces + "name x y")
  * - print(): inorder of BST by name (level + 2*level spaces + "name (x, y)")
+ * 
+ * @author Parth Mehta (pmehta24)
+ * @author Anurag Pokala (anuragp34)
+ * @version 2025-10-06
  */
 public class GISDB implements GIS {
 
@@ -64,36 +68,56 @@ public class GISDB implements GIS {
     }
 
     /**
-     * Delete ALL cities with this name. Outputs each coordinate line, preorder tie preference via KDTree.
+     * Delete all cities with the given name.
+     * Output each deletion line as "name (x, y)\n" in lexicographic (x,y) order.
+     * Returns empty string when name is null or no matches exist.
      */
     public String delete(String name) {
-        if (name == null) return "";
+        if (name == null) {
+            return "";
+        }
+
+        // Collect all matches first (order-agnostic collection).
+        java.util.ArrayList<City> matches = new java.util.ArrayList<>();
+        byCoord.preorderWithLevels((lvl, e) -> {
+            if (e.getName().equals(name)) {
+                matches.add(e);
+            }
+        });
+        if (matches.isEmpty()) {
+            return "";
+        }
+
+        // Deterministic order: lexicographic by (x, then y).
+        matches.sort((a, b) -> {
+            int cx = Integer.compare(a.getX(), b.getX());
+            if (cx != 0) {
+                return cx;
+            }
+            return Integer.compare(a.getY(), b.getY());
+        });
 
         StringBuilder sb = new StringBuilder();
-
-        while (true) {
-            // First matching entry in current PREORDER (preorder tie preference)
-            final City[] first = new City[1];
-            byCoord.preorderWithLevels((lvl, e) -> {
-                if (first[0] == null && e.getName().equals(name)) {
-                    first[0] = e;
-                }
-            });
-            if (first[0] == null) break;
-
-            KDTree.DeleteOutcome out = byCoord.delete(first[0].getX(), first[0].getY());
+        for (City m : matches) {
+            // Remove from KDTree by exact coord.
+            KDTree.DeleteOutcome out = byCoord.delete(m.getX(), m.getY());
             if (out.entry != null) {
-                // remove the exact triple from the BST
-                byName.removeMatching(new City(out.entry.getName(), out.entry.getX(), out.entry.getY()),
-                        c -> c.getX() == out.entry.getX() && c.getY() == out.entry.getY()
-                                && c.getName().equals(out.entry.getName()));
+                // Remove exact triple from BST using your existing predicate.
+                byName.removeMatching(
+                    new City(out.entry.getName(), out.entry.getX(),
+                        out.entry.getY()),
+                    c -> c.getX() == out.entry.getX()
+                        && c.getY() == out.entry.getY()
+                        && c.getName().equals(out.entry.getName())
+                );
                 sb.append(out.entry.getName()).append(" (")
-                  .append(out.entry.getX()).append(", ").append(out.entry.getY())
-                  .append(")").append("\n");
+                  .append(out.entry.getX()).append(", ")
+                  .append(out.entry.getY()).append(")").append("\n");
             }
         }
         return sb.toString();
     }
+
 
     /** Name at coordinate or empty string. */
     public String info(int x, int y) {
