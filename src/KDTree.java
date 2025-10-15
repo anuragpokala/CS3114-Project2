@@ -12,6 +12,10 @@ import java.util.function.BiConsumer;
  *   <li>Range search uses squared distance with rectangle pruning and visit
  *       counting.</li>
  * </ul>
+ * 
+ * @author Parth Mehta (pmehta24)
+ * @author Anurag Pokala (anuragp34)
+ * @version 2025-10-06
  */
 class KDTree {
 
