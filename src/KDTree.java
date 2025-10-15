@@ -2,152 +2,69 @@ import java.util.Objects;
 import java.util.function.BiConsumer;
 
 /**
- * A 2-D kd-tree that stores {@code City} records by their (x, y) coordinates.
+ * 2D kd-tree storing {@code City} records by coordinates.
  *
- * <p>Behavioral rules:
+ * <p>Behavior:
  * <ul>
- *   <li><b>Insert</b> rejects duplicate (x, y) coordinates. Ties in the split
- *       key always go to the <i>right</i> child.</li>
- *   <li><b>Delete</b> replaces the removed node with the minimum (in the
- *       current split dimension) from the right subtree, breaking ties by the
- *       other coordinate (lexicographic by (x,y) on X-splits and (y,x) on
- *       Y-splits). The visit count includes nodes touched during replacement
- *       searches.</li>
- *   <li><b>Range search</b> includes a node when
- *       {@code (dx*dx + dy*dy) <= r*r}. The search prunes subtrees using
- *       rectangle-vs-circle intersection checks and reports the number of
- *       visited nodes.</li>
+ *   <li>Insert rejects duplicate (x,y). Ties in split key go RIGHT.</li>
+ *   <li>Delete replaces the removed node with the minimum in the current split
+ *       dimension taken from the right subtree (preorder tie preference).</li>
+ *   <li>Range search uses squared distance with rectangle pruning and visit
+ *       counting.</li>
  * </ul>
- *
- * <p>Traversal helpers are provided to support the assignment’s printing
- * utilities.</p>
- *
- * @author Parth
- * @author Anurag
- * @version 2025-10-06
  */
 class KDTree {
 
-    /** Tree node holding a {@link City} and links to children. */
+    // ------------------------------- Node --------------------------------
+    /**
+     * Tree node storing a city entry and two child links.
+     */
     private static final class Node {
         City e;
         Node left;
         Node right;
 
-        /** Creates a node for the given city. */
-        Node(City e) {
-            this.e = e;
-        }
+        /**
+         * Creates a node for the given city.
+         *
+         * @param e the city payload
+         */
+        Node(City e) { this.e = e; }
     }
 
-    /** Result wrapper for recursive insert. */
-    private static final class Result {
-        final Node newRoot;
-        final boolean added;
-
-        /** Creates an insert result with new root and add flag. */
-        Result(Node n, boolean a) {
-            newRoot = n;
-            added = a;
-        }
-    }
-
-    /** Mutable counter used to accumulate visit counts. */
-    private static final class Counter {
-        int count = 0;
-    }
-
-    /** Delete recursion result: new subtree root and removed entry. */
-    private static final class DelRes {
-        final Node newRoot;
-        final City removed;
-
-        /** Creates a delete result. */
-        DelRes(Node r, City e) {
-            this.newRoot = r;
-            this.removed = e;
-        }
-    }
-
-    /**
-     * Outcome of a delete operation.
-     */
-    public static final class DeleteOutcome {
-        /** Number of nodes visited during the delete. */
-        public final int visited;
-        /** The entry removed, or {@code null} if not found. */
-        public final City entry;
-
-        /** Creates a delete outcome. */
-        public DeleteOutcome(int visited, City entry) {
-            this.visited = visited;
-            this.entry = entry;
-        }
-    }
-
-    /**
-     * Outcome of a range search.
-     */
-    public static final class SearchOutcome {
-        /** Number of nodes visited during the search. */
-        public final int visited;
-        /** Collected listing of matches, one per line. */
-        public final String listing;
-
-        /** Creates a range search outcome. */
-        public SearchOutcome(int visited, String listing) {
-            this.visited = visited;
-            this.listing = listing;
-        }
-    }
-
-    // ----------------------------------------------------------------------
-    // fields
-    // ----------------------------------------------------------------------
-
-    /** Root of the kd-tree. */
+    // ------------------------------ Fields -------------------------------
     private Node root;
-
-    /** Number of entries in the tree. */
     private int size;
 
-    // ----------------------------------------------------------------------
-    // basic ops
-    // ----------------------------------------------------------------------
-
-    /** Removes all entries from the tree. */
-    public void clear() {
-        root = null;
-        size = 0;
-    }
-
+    // ---------------------------- Basic Ops ------------------------------
     /**
-     * Returns {@code true} if the tree has no entries.
-     *
-     * @return whether the tree is empty
+     * Removes all entries from the tree.
      */
-    public boolean isEmpty() {
-        return size == 0;
-    }
+    public void clear() { root = null; size = 0; }
 
     /**
-     * Returns the number of entries in the tree.
+     * Returns whether the tree is empty.
+     *
+     * @return {@code true} if empty
+     */
+    public boolean isEmpty() { return size == 0; }
+
+    /**
+     * Returns the number of entries stored.
      *
      * @return size of the tree
      */
-    public int size() {
-        return size;
-    }
+    public int size() { return size; }
 
+    // ----------------------------- Insert --------------------------------
     /**
-     * Inserts a new city record. Duplicate (x, y) coordinates are rejected.
-     * Ties in the split key go to the right child.
+     * Inserts a city by coordinates. Duplicate coordinates are rejected.
+     * Ties in the split key go to the right subtree.
      *
-     * @param name city name (not {@code null})
+     * @param name city name
      * @param x    x coordinate
      * @param y    y coordinate
-     * @return {@code true} if inserted; {@code false} on duplicate
-     * @throws NullPointerException if {@code name} is {@code null}
+     * @return {@code true} if inserted; {@code false} if duplicate
      */
     public boolean insert(String name, int x, int y) {
         Objects.requireNonNull(name, "name");
@@ -162,27 +79,41 @@ class KDTree {
     }
 
     /**
-     * Convenience overload that inserts an existing {@link City}.
+     * Convenience insert from an existing {@code City}.
      *
-     * @param c city to insert
-     * @return whether the city was inserted
+     * @param c city instance
+     * @return {@code true} if inserted
      */
     public boolean insert(City c) {
         return insert(c.getName(), c.getX(), c.getY());
     }
 
     /**
-     * Recursive insert that preserves kd-tree splitting rules.
+     * Result of a recursive insert.
+     */
+    private static final class Result {
+        final Node newRoot;
+        final boolean added;
+
+        /**
+         * Creates an insert result.
+         *
+         * @param n new subtree root
+         * @param a whether a node was added
+         */
+        Result(Node n, boolean a) { newRoot = n; added = a; }
+    }
+
+    /**
+     * Recursive helper for insertion.
      *
      * @param n     subtree root
-     * @param e     entry to insert
-     * @param depth current depth (parity selects split axis)
-     * @return result containing new subtree root and add flag
+     * @param e     city to insert
+     * @param depth current depth
+     * @return result containing the new subtree root and add flag
      */
     private Result insertRec(Node n, City e, int depth) {
-        if (n == null) {
-            return new Result(new Node(e), true);
-        }
+        if (n == null) return new Result(new Node(e), true);
         if (e.getX() == n.e.getX() && e.getY() == n.e.getY()) {
             return new Result(n, false);
         }
@@ -201,170 +132,167 @@ class KDTree {
         }
     }
 
-    // ----------------------------------------------------------------------
-    // traversals used by the assignment’s print/debug helpers
-    // ----------------------------------------------------------------------
-
+    // ---------------------------- Traversals -----------------------------
     /**
-     * Inorder traversal with levels (depth). Each visited node is supplied to
-     * the given consumer as {@code (level, city)}.
+     * Inorder traversal that passes (level, city) to {@code visit}.
      *
-     * @param visit consumer of (level, city)
+     * @param visit consumer receiving level and city
      */
     public void inorderWithLevels(BiConsumer<Integer, City> visit) {
         inorderRec(root, 0, visit);
     }
 
     /**
-     * Recursive inorder traversal with level tracking.
+     * Recursive helper for inorder traversal with levels.
      *
      * @param n     subtree root
      * @param level current level
-     * @param visit consumer of (level, city)
+     * @param visit consumer receiving level and city
      */
     private void inorderRec(
-        Node n,
-        int level,
-        BiConsumer<Integer, City> visit) {
-
-        if (n == null) {
-            return;
-        }
+        Node n, int level, BiConsumer<Integer, City> visit) {
+        if (n == null) return;
         inorderRec(n.left, level + 1, visit);
         visit.accept(level, n.e);
         inorderRec(n.right, level + 1, visit);
     }
 
     /**
-     * Preorder traversal with levels (depth).
+     * Preorder traversal that passes (level, city) to {@code visit}.
      *
-     * @param visit consumer of (level, city)
+     * @param visit consumer receiving level and city
      */
     public void preorderWithLevels(BiConsumer<Integer, City> visit) {
         preorderRec(root, 0, visit);
     }
 
     /**
-     * Recursive preorder traversal with level tracking.
+     * Recursive helper for preorder traversal with levels.
      *
      * @param n     subtree root
      * @param level current level
-     * @param visit consumer of (level, city)
+     * @param visit consumer receiving level and city
      */
     private void preorderRec(
-        Node n,
-        int level,
-        BiConsumer<Integer, City> visit) {
-
-        if (n == null) {
-            return;
-        }
+        Node n, int level, BiConsumer<Integer, City> visit) {
+        if (n == null) return;
         visit.accept(level, n.e);
         preorderRec(n.left, level + 1, visit);
         preorderRec(n.right, level + 1, visit);
     }
 
-    // ----------------------------------------------------------------------
-    // exact find, delete, and range search
-    // ----------------------------------------------------------------------
+    // ------------------ Exact Find, Delete, Range Search ------------------
+    /**
+     * Outcome of a delete operation.
+     */
+    public static final class DeleteOutcome {
+        public final int visited;
+        public final City entry;
+
+        /**
+         * Creates a delete outcome.
+         *
+         * @param visited nodes visited
+         * @param entry   removed city (or {@code null})
+         */
+        public DeleteOutcome(int visited, City entry) {
+            this.visited = visited;
+            this.entry = entry;
+        }
+    }
 
     /**
-     * Finds the city with the exact coordinates, or {@code null} if missing.
+     * Mutable visit counter.
+     */
+    private static final class Counter { int count = 0; }
+
+    /**
+     * Internal delete result.
+     */
+    private static final class DelRes {
+        final Node newRoot;
+        final City removed;
+
+        /**
+         * Creates a delete result.
+         *
+         * @param r new subtree root
+         * @param e removed city (or {@code null})
+         */
+        DelRes(Node r, City e) { this.newRoot = r; this.removed = e; }
+    }
+
+    /**
+     * Finds the exact (x,y) city.
      *
-     * @param x target x
-     * @param y target y
+     * @param x x coordinate
+     * @param y y coordinate
      * @return matching city or {@code null}
      */
     public City findExact(int x, int y) {
         Node n = root;
         int depth = 0;
         while (n != null) {
-            if (n.e.getX() == x && n.e.getY() == y) {
-                return n.e;
-            }
+            if (n.e.getX() == x && n.e.getY() == y) return n.e;
             boolean splitOnX = (depth % 2 == 0);
-            if (splitOnX) {
-                n = (x < n.e.getX()) ? n.left : n.right;
-            } else {
-                n = (y < n.e.getY()) ? n.left : n.right;
-            }
+            n = splitOnX
+                ? ((x < n.e.getX()) ? n.left : n.right)
+                : ((y < n.e.getY()) ? n.left : n.right);
             depth = depth + 1;
         }
         return null;
     }
 
     /**
-     * Deletes the city at (x, y).
+     * Deletes the city at (x,y). If the tree is empty, returns visited 0 and
+     * a {@code null} entry.
      *
-     * <p>If the tree is empty, returns visited {@code 0} and {@code null}
-     * entry.</p>
-     *
-     * @param x target x
-     * @param y target y
+     * @param x x coordinate
+     * @param y y coordinate
      * @return outcome with visit count and removed entry
      */
     public DeleteOutcome delete(int x, int y) {
-        if (root == null) {
-            return new DeleteOutcome(0, null);
-        }
+        if (root == null) return new DeleteOutcome(0, null);
         Counter c = new Counter();
         DelRes r = deleteRec(root, x, y, 0, c);
         root = r.newRoot;
-        if (r.removed != null && size > 0) {
-            size = size - 1;
-        }
+        if (r.removed != null && size > 0) size = size - 1;
         return new DeleteOutcome(c.count, r.removed);
     }
 
     /**
-     * Recursive delete. When removing a node, the replacement is the
-     * lexicographic minimum of the right subtree in the current split
-     * dimension (ties broken by the other coordinate). If the right subtree is
-     * empty, a left-only variant is used and rewired to keep shape stable.
+     * Recursive helper for deletion.
      *
-     * @param n     subtree root
-     * @param x     target x
-     * @param y     target y
-     * @param depth current depth
-     * @param c     visit counter
-     * @return new subtree root and removed entry
+     * @param n      subtree root
+     * @param x      x target
+     * @param y      y target
+     * @param depth  current depth
+     * @param c      visit counter
+     * @return delete result for this subtree
      */
     private DelRes deleteRec(
-        Node n,
-        int x,
-        int y,
-        int depth,
-        Counter c) {
-
-        if (n == null) {
-            return new DelRes(null, null);
-        }
+        Node n, int x, int y, int depth, Counter c) {
+        if (n == null) return new DelRes(null, null);
         c.count = c.count + 1;
 
         if (n.e.getX() == x && n.e.getY() == y) {
             City removed = n.e;
             if (n.right != null) {
-                boolean wantX = (depth % 2 == 0);
-                Node minNode = findMinLex(n.right, depth + 1, wantX, c);
+                int splitDim = depth % 2;
+                Node minNode = findMin(n.right, depth + 1, splitDim, c);
                 n.e = minNode.e;
                 DelRes rr = deleteRec(
-                    n.right,
-                    minNode.e.getX(),
-                    minNode.e.getY(),
-                    depth + 1,
-                    c);
+                    n.right, minNode.e.getX(), minNode.e.getY(),
+                    depth + 1, c);
                 n.right = rr.newRoot;
                 return new DelRes(n, removed);
             } else if (n.left != null) {
-                boolean wantX = (depth % 2 == 0);
-                Node minNode = findMinLex(n.left, depth + 1, wantX, c);
+                int splitDim = depth % 2;
+                Node minNode = findMin(n.left, depth + 1, splitDim, c);
                 n.e = minNode.e;
                 DelRes rl = deleteRec(
-                    n.left,
-                    minNode.e.getX(),
-                    minNode.e.getY(),
-                    depth + 1,
-                    c);
+                    n.left, minNode.e.getX(), minNode.e.getY(),
+                    depth + 1, c);
                 n.left = rl.newRoot;
                 if (n.right == null) {
                     n.right = n.left;
@@ -392,111 +320,96 @@ class KDTree {
     }
 
     /**
-     * Returns the lexicographic minimum under a subtree according to the
-     * requested primary dimension.
+     * Returns the preorder-minimum node in the requested dimension.
+     * Ties keep the current best (preorder preference). Visits are counted.
      *
-     * <p>If {@code wantX} is {@code true}, compares by {@code (x, y)}.
-     * Otherwise compares by {@code (y, x)}. Both children are searched so
-     * equal-primary values that were inserted to the right are handled.</p>
-     *
-     * @param n      subtree root
-     * @param depth  current depth (tracked only for visit counting symmetry)
-     * @param wantX  whether the primary dimension is x
-     * @param c      visit counter
-     * @return node containing the lexicographic minimum
+     * @param n          subtree root
+     * @param depth      current depth
+     * @param targetDim  0 for x, 1 for y
+     * @param c          visit counter
+     * @return node with the minimum value in {@code targetDim}
      */
-    private Node findMinLex(Node n, int depth, boolean wantX, Counter c) {
-        if (n == null) {
-            return null;
-        }
+    private Node findMin(
+        Node n, int depth, int targetDim, Counter c) {
+        if (n == null) return null;
         c.count = c.count + 1;
 
+        boolean splitOnX = (depth % 2 == 0);
+        int splitDim = splitOnX ? 0 : 1;
+
         Node best = n;
+        Node l = findMin(n.left, depth + 1, targetDim, c);
+        if (isBetterDim(l, best, targetDim)) best = l;
 
-        Node l = findMinLex(n.left, depth + 1, wantX, c);
-        if (isBetterLex(l, best, wantX)) {
-            best = l;
+        if (splitDim != targetDim) {
+            Node r = findMin(n.right, depth + 1, targetDim, c);
+            if (isBetterDim(r, best, targetDim)) best = r;
         }
-
-        Node r = findMinLex(n.right, depth + 1, wantX, c);
-        if (isBetterLex(r, best, wantX)) {
-            best = r;
-        }
-
         return best;
     }
 
     /**
-     * Returns {@code true} if {@code cand} is lexicographically smaller than
-     * {@code curr} under the chosen key order.
+     * Returns whether {@code cand} is smaller than {@code curr} in {@code dim}.
      *
      * @param cand candidate node
      * @param curr current best node
-     * @param byX  {@code true} for (x,y); {@code false} for (y,x)
-     * @return whether {@code cand} is better than {@code curr}
+     * @param dim  0 for x, 1 for y
+     * @return {@code true} if candidate is better
      */
-    private boolean isBetterLex(Node cand, Node curr, boolean byX) {
-        if (cand == null) {
-            return false;
-        }
-        if (curr == null) {
-            return true;
-        }
+    private boolean isBetterDim(Node cand, Node curr, int dim) {
+        if (cand == null) return false;
+        if (curr == null) return true;
+        int cv = (dim == 0) ? cand.e.getX() : cand.e.getY();
+        int bv = (dim == 0) ? curr.e.getX() : curr.e.getY();
+        if (cv < bv) return true;
+        if (cv > bv) return false;
+        return false;
+    }
 
-        if (byX) {
-            int cx = cand.e.getX();
-            int cy = cand.e.getY();
-            int bx = curr.e.getX();
-            int by = curr.e.getY();
-            if (cx != bx) {
-                return cx < bx;
-            }
-            return cy < by;
-        } else {
-            int cy = cand.e.getY();
-            int cx = cand.e.getX();
-            int by = curr.e.getY();
-            int bx = curr.e.getX();
-            if (cy != by) {
-                return cy < by;
-            }
-            return cx < bx;
+    // --------------------------- Range Search -----------------------------
+    /**
+     * Outcome of a range search.
+     */
+    public static final class SearchOutcome {
+        public final int visited;
+        public final String listing;
+
+        /**
+         * Creates a range outcome.
+         *
+         * @param visited nodes visited
+         * @param listing newline-delimited matches
+         */
+        public SearchOutcome(int visited, String listing) {
+            this.visited = visited;
+            this.listing = listing;
         }
     }
 
     /**
-     * Performs a circular range search centered at {@code (cx, cy)} with
-     * radius {@code r}. The result lists matching cities, one per line.
+     * Returns all cities within {@code radius} of ({@code cx},{@code cy}).
+     * Listing is one city per line. Visits are counted.
      *
      * @param cx     center x
      * @param cy     center y
-     * @param radius radius (non-negative)
-     * @return outcome with visit count and textual listing
+     * @param radius query radius
+     * @return outcome containing visit count and listing
      */
     public SearchOutcome rangeSearch(int cx, int cy, int radius) {
-        if (root == null) {
-            return new SearchOutcome(0, "");
-        }
+        if (root == null) return new SearchOutcome(0, "");
         StringBuilder sb = new StringBuilder();
         Counter c = new Counter();
         long r2 = (long) radius * (long) radius;
         rangeRec(
-            root,
-            0,
-            Integer.MIN_VALUE,
-            Integer.MIN_VALUE,
-            Integer.MAX_VALUE,
-            Integer.MAX_VALUE,
-            cx,
-            cy,
-            r2,
-            sb,
-            c);
+            root, 0,
+            Integer.MIN_VALUE, Integer.MIN_VALUE,
+            Integer.MAX_VALUE, Integer.MAX_VALUE,
+            cx, cy, r2, sb, c);
         return new SearchOutcome(c.count, sb.toString());
     }
 
     /**
-     * Recursive range search with rectangle pruning.
+     * Recursive helper for range search with rectangle pruning.
      *
      * @param n     subtree root
      * @param depth current depth
@@ -504,41 +417,27 @@ class KDTree {
      * @param minY  rectangle min y
      * @param maxX  rectangle max x
      * @param maxY  rectangle max y
-     * @param cx    circle center x
-     * @param cy    circle center y
-     * @param r2    squared radius
-     * @param out   output buffer
+     * @param cx    center x
+     * @param cy    center y
+     * @param r2    radius squared
+     * @param out   result builder
      * @param c     visit counter
      */
     private void rangeRec(
-        Node n,
-        int depth,
-        int minX,
-        int minY,
-        int maxX,
-        int maxY,
-        int cx,
-        int cy,
-        long r2,
-        StringBuilder out,
-        Counter c) {
-
-        if (n == null) {
-            return;
-        }
+        Node n, int depth,
+        int minX, int minY, int maxX, int maxY,
+        int cx, int cy, long r2,
+        StringBuilder out, Counter c) {
+        if (n == null) return;
         c.count = c.count + 1;
 
         long dx = (long) n.e.getX() - (long) cx;
         long dy = (long) n.e.getY() - (long) cy;
         long d2 = dx * dx + dy * dy;
         if (d2 <= r2) {
-            out.append(n.e.getName())
-               .append(" (")
-               .append(n.e.getX())
-               .append(", ")
-               .append(n.e.getY())
-               .append(")")
-               .append("\n");
+            out.append(n.e.getName()).append(" (")
+               .append(n.e.getX()).append(", ")
+               .append(n.e.getY()).append(")\n");
         }
 
         boolean splitOnX = (depth % 2 == 0);
@@ -548,31 +447,15 @@ class KDTree {
             int rightMinX = split;
             if (rectIntersectsCircle(minX, minY, leftMaxX, maxY, cx, cy, r2)) {
                 rangeRec(
-                    n.left,
-                    depth + 1,
-                    minX,
-                    minY,
-                    leftMaxX,
-                    maxY,
-                    cx,
-                    cy,
-                    r2,
-                    out,
-                    c);
+                    n.left, depth + 1,
+                    minX, minY, leftMaxX, maxY,
+                    cx, cy, r2, out, c);
             }
             if (rectIntersectsCircle(rightMinX, minY, maxX, maxY, cx, cy, r2)) {
                 rangeRec(
-                    n.right,
-                    depth + 1,
-                    rightMinX,
-                    minY,
-                    maxX,
-                    maxY,
-                    cx,
-                    cy,
-                    r2,
-                    out,
-                    c);
+                    n.right, depth + 1,
+                    rightMinX, minY, maxX, maxY,
+                    cx, cy, r2, out, c);
             }
         } else {
             int split = n.e.getY();
@@ -580,66 +463,37 @@ class KDTree {
             int upperMinY = split;
             if (rectIntersectsCircle(minX, minY, maxX, lowerMaxY, cx, cy, r2)) {
                 rangeRec(
-                    n.left,
-                    depth + 1,
-                    minX,
-                    minY,
-                    maxX,
-                    lowerMaxY,
-                    cx,
-                    cy,
-                    r2,
-                    out,
-                    c);
+                    n.left, depth + 1,
+                    minX, minY, maxX, lowerMaxY,
+                    cx, cy, r2, out, c);
             }
             if (rectIntersectsCircle(minX, upperMinY, maxX, maxY, cx, cy, r2)) {
                 rangeRec(
-                    n.right,
-                    depth + 1,
-                    minX,
-                    upperMinY,
-                    maxX,
-                    maxY,
-                    cx,
-                    cy,
-                    r2,
-                    out,
-                    c);
+                    n.right, depth + 1,
+                    minX, upperMinY, maxX, maxY,
+                    cx, cy, r2, out, c);
             }
         }
     }
 
     /**
-     * Returns {@code true} if a rectangle intersects (or touches) a circle.
+     * Returns whether an axis-aligned rectangle intersects or touches a circle.
      *
      * @param minX rectangle min x
      * @param minY rectangle min y
      * @param maxX rectangle max x
      * @param maxY rectangle max y
-     * @param cx   circle center x
-     * @param cy   circle center y
-     * @param r2   squared radius
-     * @return whether the rectangle intersects the circle
+     * @param cx   center x
+     * @param cy   center y
+     * @param r2   radius squared
+     * @return {@code true} if the rectangle and circle intersect or touch
      */
     private boolean rectIntersectsCircle(
-        int minX,
-        int minY,
-        int maxX,
-        int maxY,
-        int cx,
-        int cy,
-        long r2) {
+        int minX, int minY, int maxX, int maxY,
+        int cx, int cy, long r2) {
 
-        if (minX > maxX) {
-            int t = minX;
-            minX = maxX;
-            maxX = t;
-        }
-        if (minY > maxY) {
-            int t = minY;
-            minY = maxY;
-            maxY = t;
-        }
+        if (minX > maxX) { int t = minX; minX = maxX; maxX = t; }
+        if (minY > maxY) { int t = minY; minY = maxY; maxY = t; }
 
         int nx = clamp(cx, minX, maxX);
         int ny = clamp(cy, minY, maxY);
@@ -653,17 +507,13 @@ class KDTree {
      * Clamps {@code v} to the inclusive range [{@code lo}, {@code hi}].
      *
      * @param v  value
-     * @param lo lower bound
-     * @param hi upper bound
+     * @param lo low bound
+     * @param hi high bound
      * @return clamped value
      */
     private int clamp(int v, int lo, int hi) {
-        if (v < lo) {
-            return lo;
-        }
-        if (v > hi) {
-            return hi;
-        }
+        if (v < lo) return lo;
+        if (v > hi) return hi;
         return v;
     }
 }
