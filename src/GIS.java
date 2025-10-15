@@ -2,8 +2,9 @@
 /**
  * Interface class for the GIS project
  *
- * @author Parth Mehta
- * @version 10/04/25
+ * @author Parth Mehta (pmehta24)
+ * @author Anurag Pokala (anuragp34)
+ * @version 2025-10-06
  *
  */
 public interface GIS {
