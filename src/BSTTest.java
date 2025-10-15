@@ -7,9 +7,9 @@ import java.util.ArrayList;
  * Tests for the name-ordered BST that stores City records.
  * Equal keys go LEFT; delete uses max-from-left; removeMatching 
  * removes an exact triple.
- * @author Parth Mehta
- * @author Anurag Pokala
- * @version 2025-10-14
+ * @author Parth Mehta (pmehta24)
+ * @author Anurag Pokala (anuragp34)
+ * @version 2025-10-06
  */
 public class BSTTest extends TestCase 
 {
