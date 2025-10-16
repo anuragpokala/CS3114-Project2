@@ -164,7 +164,8 @@ public class KDTreeTest extends TestCase {
     private static int extractLevel(String listing, String name) {
         for (String ln : listing.split("\\R")) {
             if (ln.isEmpty()) continue;
-            int i = 0, lvl = 0;
+            int i = 0;
+            int lvl = 0;
             while (i < ln.length() && Character.isDigit(ln.charAt(i))) {
                 lvl = 10 * lvl + (ln.charAt(i) - '0');
                 i++;
@@ -282,9 +283,11 @@ public class KDTreeTest extends TestCase {
             int sp = ln.indexOf(' ');
             int lvl = Integer.parseInt(ln.substring(0, sp));
             String rest = ln.substring(sp + 1);
-            int i = 0, spaces = 0;
+            int i = 0;
+            int spaces = 0;
             while (i < rest.length() && rest.charAt(i) == ' ') {
-                spaces++; i++;
+                spaces++; 
+                i++;
             }
             assertEquals(2 * lvl, spaces);
         }
@@ -311,7 +314,10 @@ public class KDTreeTest extends TestCase {
         assertTrue(t.insert("L", -1, 0));
         assertTrue(t.insert("LL", -2, 0));
         assertTrue(t.insert("R1", 1, 0));
-        final int[] lvR = { -1 }, lvL = { -1 }, lvLL = { -1 }, lvR1 = { -1 };
+        final int[] lvR = { -1 };
+        final int[] lvL = { -1 }; 
+        final int[] lvLL = { -1 };
+        final int[] lvR1 = { -1 };
         t.preorderWithLevels((lvl, e) -> {
             if (e.getName().equals("R")) lvR[0] = lvl;
             if (e.getName().equals("L")) lvL[0] = lvl;
@@ -792,7 +798,8 @@ public class KDTreeTest extends TestCase {
         KDTree t = new KDTree();
         assertTrue(t.insert("R", 0, 0));
         assertTrue(t.insert("TX", 0, -1));
-        final int[] lvlR = { -1 }, lvlTX = { -1 };
+        final int[] lvlR = { -1 };
+        final int[] lvlTX = { -1 };
         t.preorderWithLevels((lvl, e) -> {
             if ("R".equals(e.getName())) lvlR[0] = lvl;
             if ("TX".equals(e.getName())) lvlTX[0] = lvl;
@@ -807,7 +814,8 @@ public class KDTreeTest extends TestCase {
         assertTrue(t.insert("R", 0, 0));
         assertTrue(t.insert("RX", 5, 5));
         assertTrue(t.insert("TY", 9, 5));
-        final int[] lvlRX = { -1 }, lvlTY = { -1 };
+        final int[] lvlRX = { -1 };
+        final int[] lvlTY = { -1 };
         t.preorderWithLevels((lvl, e) -> {
             if ("RX".equals(e.getName())) lvlRX[0] = lvl;
             if ("TY".equals(e.getName())) lvlTY[0] = lvl;
@@ -902,7 +910,8 @@ public class KDTreeTest extends TestCase {
      * Ensures insertRec uses depth+1 on the LEFT branch.
      * With correct parity (depth 2 uses X), C must be B's RIGHT child, so
      * inorder lists "... B (4,-1) ... C (4,-2) ...".
-     * If a mutant passes depth==1 instead of depth+1, the child still splits on Y
+     * If a mutant passes depth==1 instead of depth+1, 
+     * the child still splits on Y
      * and C becomes B's LEFT child, so inorder flips to "C ... B".
      */
     public void testInsertRecDepthIncrementOnLeftBranch() {
@@ -930,14 +939,26 @@ public class KDTreeTest extends TestCase {
         assertTrue(t.insert("B", -2, 0));
         assertTrue(t.insert("C", -3, 0));
 
-        final int[] lr = { -1 }, la = { -1 }, lb = { -1 }, lc = { -1 };
+        final int[] lr = { -1 };
+        final int[] la = { -1 };
+        final int[] lb = { -1 };
+        final int[] lc = { -1 };
         t.preorderWithLevels((lvl, e) -> {
             switch (e.getName()) {
-                case "R": lr[0] = lvl; break;
-                case "A": la[0] = lvl; break;
-                case "B": lb[0] = lvl; break;
-                case "C": lc[0] = lvl; break;
-                default: break;
+                case "R":
+                    lr[0] = lvl;
+                    break;
+                case "A":
+                    la[0] = lvl;
+                    break;
+                case "B":
+                    lb[0] = lvl;
+                    break;
+                case "C":
+                    lc[0] = lvl;
+                    break;
+                default:
+                    break;
             }
         });
 
@@ -949,13 +970,13 @@ public class KDTreeTest extends TestCase {
     }
 
     
-    /** findExact must use X-split at depth 2; otherwise it misses the target. */
+    /** findExact must use X-split at depth 2; */
     public void testFindExactRequiresXSplitAtDepthTwo() {
         KDTree t = new KDTree();
-        assertTrue(t.insert("R", 0, 0));        // depth 0 (X)
-        assertTrue(t.insert("N1", 5, 0));       // depth 1 (Y), right of root
-        assertTrue(t.insert("N1L", 5, -5));     // depth 2 (X), left of N1
-        assertTrue(t.insert("Target", 4, -5));  // depth 3, left of N1L when depth2 uses X
+        assertTrue(t.insert("R", 0, 0));       
+        assertTrue(t.insert("N1", 5, 0));      
+        assertTrue(t.insert("N1L", 5, -5));     
+        assertTrue(t.insert("Target", 4, -5));  
 
         // Correct parity (X at depth 2) finds the target:
         assertNotNull("Target should be found when depth-2 uses X-split",
@@ -967,7 +988,11 @@ public class KDTreeTest extends TestCase {
         final int[] levels;
         final City[] cities;
         int n = 0;
-        InorderAcc(int cap) { levels = new int[cap]; cities = new City[cap]; }
+        InorderAcc(int cap) {
+            levels = new int[cap];
+            cities = new City[cap];
+        }
+
     }
 
     /** tiny fixed-capacity accumulator for inorder (no ArrayList). */
@@ -1033,25 +1058,26 @@ public class KDTreeTest extends TestCase {
         // find the level-0 entry (root)
         City root = null;
         for (int i = 0; i < acc.n; i++) {
-            if (acc.levels[i] == 0) { root = acc.cities[i]; break; }
+            if (acc.levels[i] == 0) 
+            { 
+                root = acc.cities[i]; 
+                break; 
+            }
         }
         assertNotNull(root);
         assertEquals(6, root.getX());
         assertEquals(9, root.getY()); // RX, not RXL
     }
 
-    /** At depth 1 (Y split), delete must replace with Y-min from the RIGHT subtree. */
+    /** At depth 1 (Y split), delete must replace with Y-min */
     public void testDeleteDepthOneUsesYMinFromRightDirect() {
         KDTree t = new KDTree();
 
-        // Build:
-        // depth 0:  R(0,0)      [X split]
-        // depth 1L: T(-1,5)     [Y split]  <-- delete this
-        // T.right subtree (y ≥ 5): two nodes with y=6 and y=7
+        
         assertTrue(t.insert("R",  0, 0));
         assertTrue(t.insert("T", -1, 5));
-        assertTrue(t.insert("A", -2, 6));   // goes to T.right, becomes right child root
-        assertTrue(t.insert("B", -1, 7));   // also in T.right; Y-min there is A(-2,6)
+        assertTrue(t.insert("A", -2, 6)); 
+        assertTrue(t.insert("B", -1, 7));  
 
         KDTree.DeleteOutcome out = t.delete(-1, 5);
         assertEquals("T", out.entry.getName());    // deleted the correct node
@@ -1064,19 +1090,21 @@ public class KDTreeTest extends TestCase {
         for (int i = 0; i < acc.n; i++) {
             if (acc.levels[i] == 1) {
                 City c = acc.cities[i];
-                if (c.getName().equals("A") && c.getX() == -2 && c.getY() == 6) {
+                if (c.getName().equals("A") && 
+                    c.getX() == -2 && c.getY() == 6) {
                     sawAAtLevel1 = true;
                     break;
                 }
             }
         }
-        assertTrue("Expected depth-1 replacement with coords (-2,6)", sawAAtLevel1);
+        assertTrue("Expected depth-1 replacement "
+            + "with coords (-2,6)", sawAAtLevel1);
 
         // The deleted coord must be gone.
         assertNull(t.findExact(-1, 5));
     }
 
-    /** LEFT-only promotion path: promote min from left and rewire leftover to RIGHT. */
+    /** LEFT-only promotion path*/
     public void testDeleteLeftOnlyPromotesAndRewiresDirect() {
         KDTree t = new KDTree();
         assertTrue(t.insert("Root", 5, 5));
@@ -1117,33 +1145,33 @@ public class KDTreeTest extends TestCase {
         assertNull(t.findExact(5, 1));
     }
     
-    /** delete() on an empty KDTree must short-circuit with (visited=0, entry=null). */
+    /** delete() on an empty KDTree  */
     public void testKdDeleteEmptyDirect() {
-     KDTree t = new KDTree();
-     KDTree.DeleteOutcome out = t.delete(5, 5);
-     assertEquals(0, out.visited);
-     assertEquals(null, out.entry);
-     assertTrue(t.isEmpty());
+        KDTree t = new KDTree();
+        KDTree.DeleteOutcome out = t.delete(5, 5);
+        assertEquals(0, out.visited);
+        assertEquals(null, out.entry);
+        assertTrue(t.isEmpty());
     }
 
     /** Size must decrement only on a successful delete, never on a miss. */
     public void testKdSizeAccountingOnSuccessAndMissDirect() {
-     KDTree t = new KDTree();
-     assertTrue(t.insert("A", 1, 1));
-     assertTrue(t.insert("B", 2, 2));
-     assertEquals(2, t.size());
+        KDTree t = new KDTree();
+        assertTrue(t.insert("A", 1, 1));
+        assertTrue(t.insert("B", 2, 2));
+        assertEquals(2, t.size());
 
-     KDTree.DeleteOutcome ok = t.delete(1, 1);
-     assertEquals("A", ok.entry.getName());
-     assertEquals(1, t.size());               // kills: if (r.removed != null && size > 0) ...
+        KDTree.DeleteOutcome ok = t.delete(1, 1);
+        assertEquals("A", ok.entry.getName());
+        assertEquals(1, t.size());           
 
-     KDTree.DeleteOutcome miss = t.delete(9, 9);
-     assertEquals(null, miss.entry);
-     assertEquals(1, t.size());               // no decrement on miss
+        KDTree.DeleteOutcome miss = t.delete(9, 9);
+        assertEquals(null, miss.entry);
+        assertEquals(1, t.size());               
 
-     KDTree.DeleteOutcome ok2 = t.delete(2, 2);
-     assertEquals("B", ok2.entry.getName());
-     assertEquals(0, t.size());               // cannot go negative
+        KDTree.DeleteOutcome ok2 = t.delete(2, 2);
+        assertEquals("B", ok2.entry.getName());
+        assertEquals(0, t.size());               
     }
 
     /**
@@ -1153,53 +1181,64 @@ public class KDTreeTest extends TestCase {
     * Mirrors the GIS test but hits KDTree directly.
     */
     public void testKdDeleteLeftOnlyRewiresDirect() {
-     KDTree t = new KDTree();
-     assertTrue(t.insert("Root", 5, 5));  // depth 0
-     assertTrue(t.insert("L",    3, 0));  // left
-     assertTrue(t.insert("LL",   2, 0));  // left-left → min(x) under left
+        KDTree t = new KDTree();
+        assertTrue(t.insert("Root", 5, 5));  // depth 0
+        assertTrue(t.insert("L", 3, 0));     // left
+        assertTrue(t.insert("LL", 2, 0));    // left-left → min(x) under left
 
-     KDTree.DeleteOutcome out = t.delete(5, 5);
-     assertEquals("Root", out.entry.getName());
+        KDTree.DeleteOutcome out = t.delete(5, 5);
+        assertEquals("Root", out.entry.getName());
 
-     // Reconstruct an inorder-with-levels view to check structure
-     StringBuilder sb = new StringBuilder();
-     t.inorderWithLevels((lvl, c) -> {
-         sb.append(lvl).append(" ").append(c.getName()).append(" ")
-           .append(c.getX()).append(" ").append(c.getY()).append("\n");
-     });
-     String view = sb.toString();
+        // Reconstruct an inorder-with-levels view to check structure
+        StringBuilder sb = new StringBuilder();
+        t.inorderWithLevels((lvl, c) -> {
+            sb.append(lvl)
+              .append(" ")
+              .append(c.getName())
+              .append(" ")
+              .append(c.getX())
+              .append(" ")
+              .append(c.getY())
+                .append("\n");
+        });
 
-     // New root must be LL (2,0). L (3,0) must be present at level 1 (as rewired right).
-     boolean sawRootOK = false, sawLAtLevel1 = false;
-     for (String ln : view.split("\\R")) {
-         if (ln.startsWith("0 ")) {
-             sawRootOK = ln.contains("LL 2 0");
-         } else if (ln.startsWith("1 ") && ln.contains(" L 3 0")) {
-             sawLAtLevel1 = true;
-         }
-     }
-     assertTrue("expected root LL (2,0); got\n" + view, sawRootOK);
-     assertTrue("expected L at level 1; got\n" + view, sawLAtLevel1);
+        String view = sb.toString();
+
+        boolean sawRootOK = false;
+        boolean sawLAtLevel1 = false;
+
+        for (String ln : view.split("\\R")) {
+            if (ln.startsWith("0 ")) {
+                sawRootOK = ln.contains("LL 2 0");
+            } 
+            else if (ln.startsWith("1 ") && ln.contains(" L 3 0")) {
+                sawLAtLevel1 = true;
+            }
+        }
+
+        assertTrue("expected root LL (2,0); got\n" + view, sawRootOK);
+        assertTrue("expected L at level 1; got\n" + view, sawLAtLevel1);
     }
 
-    /** At depth 1 (Y split), delete must promote the Y-min from the RIGHT subtree. */
+
+    /** At depth 1, delete must promote the Y-min from RIGHT subtree. */
     public void testKdDeleteDepthOneYMinFromRightDirect() {
         KDTree t = new KDTree();
-        // depth 0 (X split): root
         assertTrue(t.insert("R",  0, 0));
-        // depth 1 under root's left (Y split): target
         assertTrue(t.insert("T", -1, 5));
-        // RIGHT subtree of T (y >= 5)
-        assertTrue(t.insert("A", -1, 7));     // right child of T (greater Y)
-        assertTrue(t.insert("B", -2, 6));     // left child of A at depth 2 (X split) -> smaller Y in T's RIGHT
+        assertTrue(t.insert("A", -1, 7));     
+        assertTrue(t.insert("B", -2, 6));    
 
         KDTree.DeleteOutcome out = t.delete(-1, 5);
         assertEquals("T", out.entry.getName());
 
         // Inorder-with-levels; look for a level-1 line containing B (-2, 6)
         StringBuilder sb = new StringBuilder();
-        t.inorderWithLevels((lvl, c) -> sb.append(lvl).append(" ").append(c.getName())
-                                          .append(" ").append(c.getX()).append(" ").append(c.getY())
+        t.inorderWithLevels((lvl, c) -> 
+            sb.append(lvl).append(" ").append(c.getName())
+                                          .append(" ").append(c.getX())
+                                          .append(" ")
+                                          .append(c.getY())
                                           .append("\n"));
         String view = sb.toString();
 
@@ -1210,7 +1249,8 @@ public class KDTreeTest extends TestCase {
                 break;
             }
         }
-        assertTrue("expected depth-1 replacement with coords (-2,6); got\n" + view, sawBAtLevel1);
+        assertTrue("expected depth-1 replacement with coords "
+            + "(-2,6); got\n" + view, sawBAtLevel1);
     }
     
     
