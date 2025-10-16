@@ -408,7 +408,6 @@ public class GISTest extends TestCase {
         String out = db.delete("Dup");
         String[] lines = out.split("\\R");
 
-        // collect non-empty lines without ArrayList
         String[] kept = new String[lines.length];
         int k = 0;
         for (int i = 0; i < lines.length; i++) {
@@ -452,7 +451,6 @@ public class GISTest extends TestCase {
         String out = db.delete("Dup");
         String[] lines = out.split("\\R");
 
-        // collect non-empty lines without ArrayList
         String[] kept = new String[lines.length];
         int k = 0;
         for (int i = 0; i < lines.length; i++) {
@@ -559,20 +557,36 @@ public class GISTest extends TestCase {
         db.insert("Dup", 80, 40);
 
         String out = db.delete("Dup");
+        String[] lines = out.split("\\R");
 
-        java.util.List<String> got = new java.util.ArrayList<>();
-        for (String s : out.split("\\R")) if (!s.isEmpty()) got.add(s);
+        // Expect exactly these five lines (order not enforced)
+        String e0 = "Dup (50, 50)";
+        String e1 = "Dup (10, 70)";
+        String e2 = "Dup (30, 70)";
+        String e3 = "Dup (70, 40)";
+        String e4 = "Dup (80, 40)";
 
-        java.util.Set<String> expected = new java.util.LinkedHashSet<>();
-        expected.add("Dup (50, 50)");
-        expected.add("Dup (10, 70)");
-        expected.add("Dup (30, 70)");
-        expected.add("Dup (70, 40)");
-        expected.add("Dup (80, 40)");
+        boolean f0 = false, f1 = false, f2 = false, f3 = false, f4 = false;
+        int countDup = 0;
 
-        assertEquals("Wrong number of deleted lines", expected.size(), got.size());
-        assertTrue("Deleted set missing some expected entries\nGot: " + got,
-                got.containsAll(expected));
+        for (int i = 0; i < lines.length; i++) {
+            String s = lines[i];
+            if (s != null && !s.isEmpty() && s.startsWith("Dup ")) {
+                countDup++;
+                if (s.equals(e0)) f0 = true;
+                else if (s.equals(e1)) f1 = true;
+                else if (s.equals(e2)) f2 = true;
+                else if (s.equals(e3)) f3 = true;
+                else if (s.equals(e4)) f4 = true;
+            }
+        }
+
+        assertEquals("Wrong number of deleted lines", 5, countDup);
+        assertTrue("Missing " + e0, f0);
+        assertTrue("Missing " + e1, f1);
+        assertTrue("Missing " + e2, f2);
+        assertTrue("Missing " + e3, f3);
+        assertTrue("Missing " + e4, f4);
 
         assertEquals("", db.info("Dup"));
         String bst = db.print();
@@ -580,6 +594,7 @@ public class GISTest extends TestCase {
         assertTrue(bst.contains("I2"));
         assertFalse(bst.contains("Dup"));
     }
+
 
     /** Mixed-depth duplicates across both sides; formatting + structure checks. */
     public void testDeleteDupsMixedDepthsExactLineDiscipline() {
@@ -599,13 +614,19 @@ public class GISTest extends TestCase {
         String out = db.delete("Dup");
         String[] raw = out.split("\\R");
 
-        java.util.ArrayList<String> lines = new java.util.ArrayList<>();
-        for (String s : raw) if (!s.isEmpty()) lines.add(s);
-
-        assertEquals("Expected 5 deletions", 5, lines.size());
-        for (String s : lines) {
-            assertTrue("Bad format: " + s, s.matches("Dup \\(-?\\d+, \\-?\\d+\\)"));
+        // Validate each non-empty "Dup ..." line format and count them
+        int dupLines = 0;
+        for (int i = 0; i < raw.length; i++) {
+            String s = raw[i];
+            if (s != null && !s.isEmpty() && s.startsWith("Dup ")) {
+                dupLines++;
+                // Match "Dup (-?\d+, -?\d+)"
+                // (No need for Pattern; simple checks are enough)
+                boolean ok = s.matches("Dup \\(-?\\d+, -?\\d+\\)");
+                assertTrue("Bad format: " + s, ok);
+            }
         }
+        assertEquals("Expected 5 deletions", 5, dupLines);
 
         assertEquals("", db.info("Dup"));
         assertEquals("Keep", db.info(20, 58));
@@ -617,6 +638,7 @@ public class GISTest extends TestCase {
         assertTrue(bst.contains("Keep"));
         assertFalse(bst.contains("Dup"));
     }
+
     
     /** Case-sensitive delete(name). */
     public void testDeleteDupsCaseSensitiveExactNameMatch() {
@@ -1135,28 +1157,39 @@ public void testDeleteByNameNoMatchesReturnsEmptyAndNoChange() {
 
 //----- Kill GISDB line 90: ordering by x, then y when x ties -----
 public void testDeleteNameOrdersByXThenY() {
- db.clear();
- // Different x and tie on x=5 with different y
- assertTrue(db.insert("Dup", 4, 100));
- assertTrue(db.insert("Dup", 5, 9));
- assertTrue(db.insert("Dup", 5, 7));
- // Also a keeper to ensure only the Dups are listed/removed
- assertTrue(db.insert("Keep", 1, 1));
+    db.clear();
+    // Different x and tie on x=5 with different y
+    assertTrue(db.insert("Dup", 4, 100));
+    assertTrue(db.insert("Dup", 5, 9));
+    assertTrue(db.insert("Dup", 5, 7));
+    // Also a keeper to ensure only the Dups are listed/removed
+    assertTrue(db.insert("Keep", 1, 1));
 
- String out = db.delete("Dup");
- String[] lines = out.split("\\R");
- java.util.ArrayList<String> kept = new java.util.ArrayList<>();
- for (String s : lines) if (!s.isEmpty()) kept.add(s);
+    String out = db.delete("Dup");
+    String[] lines = out.split("\\R");
 
- // Must be sorted lexicographically by (x, then y)
- assertEquals(3, kept.size());
- assertEquals("Dup (4, 100)", kept.get(0));
- assertEquals("Dup (5, 7)",   kept.get(1));  // y=7 before y=9 when x ties
- assertEquals("Dup (5, 9)",   kept.get(2));
+    // Collect exactly the non-empty "Dup ..." lines in order into a fixed array
+    String[] kept = new String[3];
+    int n = 0;
+    for (int i = 0; i < lines.length; i++) {
+        String s = lines[i];
+        if (s != null && !s.isEmpty() && s.startsWith("Dup ")) {
+            if (n < kept.length) {
+                kept[n++] = s;
+            }
+        }
+    }
 
- // Non-target remains
- assertEquals("Keep", db.info(1, 1));
+    // Must be sorted lexicographically by (x, then y)
+    assertEquals(3, n);
+    assertEquals("Dup (4, 100)", kept[0]);
+    assertEquals("Dup (5, 7)",   kept[1]);  // y=7 before y=9 when x ties
+    assertEquals("Dup (5, 9)",   kept[2]);
+
+    // Non-target remains
+    assertEquals("Keep", db.info(1, 1));
 }
+
 
 //----- Kill GISDB line 100: out.entry != null must be respected -----
 public void testDeleteNameProducesOneLineAndActuallyDeletes() {
