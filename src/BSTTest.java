@@ -742,7 +742,8 @@ public class BSTTest extends TestCase
                     t.remove(new City("Z", 99, 99)));
         
         // Size should NOT have changed
-        assertEquals("Size should still be 3 after failed remove", 3, t.size());
+        assertEquals("Size should still be 3 "
+            + "after failed remove", 3, t.size());
         
         // All original nodes should still exist
         assertTrue("A should still exist", t.contains(new City("A", 1, 1)));
@@ -828,7 +829,8 @@ public class BSTTest extends TestCase
             t.size());
         
         t.remove(null);
-        assertEquals("Size unchanged after second remove(null)", originalSize, 
+        assertEquals("Size unchanged "
+            + "after second remove(null)", originalSize, 
             t.size());
         
         t.remove(null);
@@ -858,7 +860,8 @@ public class BSTTest extends TestCase
         // Remove non-existent returns false, size unchanged
         boolean resultNone = t.remove(new City("Z", 99, 99));
         assertFalse("remove(non-existent) returns false", resultNone);
-        assertEquals("Size unchanged after remove(non-existent)", 2, t.size());
+        assertEquals("Size unchanged after "
+            + "remove(non-existent)", 2, t.size());
         
         // Remove existing returns true, size decrements
         boolean resultA = t.remove(a);
@@ -887,13 +890,7 @@ public class BSTTest extends TestCase
     public void testContainsLeftSubtreeMutation() 
     {
         BST<City> t = new BST<>();
-        
-        // Build a tree where we need to search the left subtree
-        //       M
-        //      / \
-        //     C   Z
-        //    / \
-        //   A   K
+
         
         t.insert(new City("M", 50, 50));
         t.insert(new City("C", 25, 25));
@@ -996,13 +993,6 @@ public class BSTTest extends TestCase
     public void testContainsMixedLeftRight() 
     {
         BST<City> t = new BST<>();
-        
-        // Balanced tree:
-        //       M
-        //      / \
-        //     E   S
-        //    / \ / \
-        //   A  H P  Z
         
         t.insert(new City("M", 50, 50));
         t.insert(new City("E", 25, 25));
