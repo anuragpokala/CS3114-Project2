@@ -1,7 +1,4 @@
 import student.TestCase;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.List;
-import java.util.ArrayList;
 
 /**
  * Tests for the name-ordered BST that stores City records.
@@ -35,6 +32,7 @@ public class BSTTest extends TestCase
         });
         return sb.toString();
     }
+
 
     /**
      * Test basic operations on an empty BST.
@@ -448,132 +446,121 @@ public class BSTTest extends TestCase
      * * Mutation 1: level + 1 -> level (removed increment)
      * Mutation 2: level + 1 -> level - 1 (wrong operation)
      */
-    public void testInorderRecLevelIncrement() 
-    {
+    public void testInorderRecLevelIncrement() {
         BST<City> t = new BST<>();
-        
-        // Build a simple tree with known structure:
-        //     M(0)
-        //    /    \
-        //   K(1)  R(1)
-        //   /
-        //  A(2)
-        
         t.insert(new City("M", 50, 50));
         t.insert(new City("K", 25, 25));
         t.insert(new City("R", 75, 75));
-        // "A" < "K" so goes left of K
-        t.insert(new City("A", 10, 10));  
-        
-        List<String> nodes = new ArrayList<>();
-        List<Integer> levels = new ArrayList<>();
+        t.insert(new City("A", 10, 10));  // "A" < "K" -> left of K
+
+        // Collect inorder results without using ArrayList/StringBag
+        String[] names = new String[4];
+        int[] levels = new int[4];
+        final int[] idx = {0};
         t.inorderWithLevels((lvl, c) -> {
-            nodes.add(c.getName());
-            levels.add(lvl);
+            names[idx[0]] = c.getName();
+            levels[idx[0]] = lvl;
+            idx[0]++;
         });
-        
-        // Expected inorder: A(2), K(1), M(0), R(1)
-        assertEquals("Should have 4 nodes", 4, nodes.size());
-        assertEquals("First node should be A", "A", nodes.get(0));
-        assertEquals("Second node should be K", "K", nodes.get(1));
-        assertEquals("Third node should be M", "M", nodes.get(2));
-        assertEquals("Fourth node should be R", "R", nodes.get(3));
-        
-        // Verify levels are correct
-        assertEquals("A should be at level 2", 2, (int) levels.get(0));
-        assertEquals("K should be at level 1", 1, (int) levels.get(1));
-        assertEquals("M should be at level 0", 0, (int) levels.get(2));
-        assertEquals("R should be at level 1", 1, (int) levels.get(3));
+
+        // expected inorder: A(2), K(1), M(0), R(1)
+        assertEquals(4, idx[0]);
+        assertEquals("A", names[0]);
+        assertEquals("K", names[1]);
+        assertEquals("M", names[2]);
+        assertEquals("R", names[3]);
+
+        assertEquals(2, levels[0]);
+        assertEquals(1, levels[1]);
+        assertEquals(0, levels[2]);
+        assertEquals(1, levels[3]);
     }
+
 
     /**
      * Catch mutation: level + 1 -> level (no increment)
      * This would make all descendants report same level as parent
      */
-    public void testLevelIncrementNotMissing() 
-    {
+    public void testLevelIncrementNotMissing() {
+        // Three-level chain: A(root) -> B(left) -> C(left)
         BST<City> t = new BST<>();
-        
-        // Three-level chain: A -> B -> C
-        // depth 0
-        t.insert(new City("A", 50, 50));  
-        // depth 1
-        t.insert(new City("B", 25, 25));  
-        // depth 2
-        t.insert(new City("C", 10, 10));  
-        
-        AtomicInteger maxLevel = new AtomicInteger(-1);
+        t.insert(new City("A", 50, 50));  // depth 0
+        t.insert(new City("B", 25, 25));  // depth 1
+        t.insert(new City("C", 10, 10));  // depth 2
+
+        // Capture the reported level for node "C" during inorder
+        final int[] maxLevel = new int[] { -1 };
         t.inorderWithLevels((lvl, c) -> {
-            if (c.getName().equals("C")) {
-                maxLevel.set(lvl);
+            if ("C".equals(c.getName())) {
+                maxLevel[0] = lvl;
             }
         });
-        
-        // If mutation "level" (no +1) was applied, C would be at level 0 or 1
-        // Correct: C should be at level 2
-        assertEquals("C should be at depth 2, not depth 0 or 1", 2, 
-            maxLevel.get());
+
+        // If level+1 were mutated away, C would not be at 2
+        assertEquals(2, maxLevel[0]);
     }
+
 
     /**
      * Catch mutation: level + 1 -> level - 1 (decrement instead of increment)
      * This would make deeper levels have LOWER level numbers
      */
-    public void testLevelMustIncrement() 
-    {
+    public void testLevelMustIncrement() {
         BST<City> t = new BST<>();
-        
+
         // Build a balanced tree to test multiple levels
-        // level 0
-        t.insert(new City("D", 50, 50));     
-        // level 1
-        t.insert(new City("B", 25, 25));     
-        // level 1
-        t.insert(new City("F", 75, 75));     
-        // level 2
-        t.insert(new City("A", 10, 10));     
-        // level 2
-        t.insert(new City("C", 30, 30));     
-        
-        AtomicInteger minLevelForLeaves = new AtomicInteger(Integer.MAX_VALUE);
+        t.insert(new City("D", 50, 50));  // level 0
+        t.insert(new City("B", 25, 25));  // level 1
+        t.insert(new City("F", 75, 75));  // level 1
+        t.insert(new City("A", 10, 10));  // level 2
+        t.insert(new City("C", 30, 30));  // level 2
+
+        // Use a single-element array as a mutable int
+        final int[] minLevelForLeaves = new int[] { Integer.MAX_VALUE };
+
         t.inorderWithLevels((lvl, c) -> {
             // A and C are leaves (deepest)
-            if (c.getName().equals("A") || c.getName().equals("C")) {
-                minLevelForLeaves.set(Math.min(minLevelForLeaves.get(), lvl));
+            if ("A".equals(c.getName()) || "C".equals(c.getName())) {
+                if (lvl < minLevelForLeaves[0]) {
+                    minLevelForLeaves[0] = lvl;
+                }
             }
         });
-        
+
         // Leaves should be at level 2, not level 0, 1, or negative
-        assertEquals("Leaves should be at level 2", 2, 
-            minLevelForLeaves.get());
-        assertTrue("Level should be positive", minLevelForLeaves.get() >= 0);
+        assertEquals("Leaves should be at level 2", 2, minLevelForLeaves[0]);
+        assertTrue("Level should be positive", minLevelForLeaves[0] >= 0);
     }
+
 
     /**
      * Comprehensive test: verify exact level sequence matches tree depth
      * Catches any arithmetic error in level calculation
      */
-    public void testLevelSequenceCorrectness() 
-    {
+    public void testLevelSequenceCorrectness() {
+        // Left-skewed tree via descending names: C -> B -> A
         BST<City> t = new BST<>();
-        
-        // Insert in order that builds a chain: C -> B -> A
-        // This creates a left-skewed tree (due to equals-left)
-        t.insert(new City("C", 50, 50));
-        t.insert(new City("B", 40, 40));
-        t.insert(new City("A", 30, 30));
-        
-        List<Integer> levels = new ArrayList<>();
+        t.insert(new City("C", 50, 50));  // depth 0
+        t.insert(new City("B", 40, 40));  // depth 1 (left of C)
+        t.insert(new City("A", 30, 30));  // depth 2 (left of B)
+
+        // Collect exactly three levels in inorder into a fixed array
+        final int[] levels = new int[3];
+        final int[] idx = new int[] { 0 };
         t.inorderWithLevels((lvl, c) -> {
-            levels.add(lvl);
+            // A, B, C will arrive in that order (inorder of left-skew)
+            if (idx[0] < levels.length) {
+                levels[idx[0]++] = lvl;
+            }
         });
-        
-        // Inorder of left-skewed tree: A(2), B(1), C(0)
-        assertEquals("Should have 3 nodes", 3, levels.size());
-        assertEquals("A should be at level 2", 2, (int) levels.get(0));
-        assertEquals("B should be at level 1", 1, (int) levels.get(1));
-        assertEquals("C should be at level 0", 0, (int) levels.get(2));
+
+        // Inorder of left-skew: A(2), B(1), C(0)
+        assertEquals(3, idx[0]);      // captured exactly three nodes
+        assertEquals(2, levels[0]);   // A
+        assertEquals(1, levels[1]);   // B
+        assertEquals(0, levels[2]);   // C
     }
+
     
     /**
      * Test to catch mutation in: public boolean isEmpty() { return size == 0; }
