@@ -77,46 +77,66 @@ public class GISDB implements GIS {
             return "";
         }
 
-        // Collect all matches first (order-agnostic collection).
-        java.util.ArrayList<City> matches = new java.util.ArrayList<>();
+        // 1) First pass: count matches (preorder over KDTree)
+        final int[] count = new int[] { 0 };
         byCoord.preorderWithLevels((lvl, e) -> {
             if (e.getName().equals(name)) {
-                matches.add(e);
+                count[0] = count[0] + 1;
             }
         });
-        if (matches.isEmpty()) {
+        int n = count[0];
+        if (n == 0) {
             return "";
         }
 
-        // Deterministic order: lexicographic by (x, then y).
-        matches.sort((a, b) -> {
-            int cx = Integer.compare(a.getX(), b.getX());
-            if (cx != 0) {
-                return cx;
+        // 2) Second pass: collect coords into parallel arrays
+        int[] xs = new int[n];
+        int[] ys = new int[n];
+        final int[] idx = new int[] { 0 };
+        byCoord.preorderWithLevels((lvl, e) -> {
+            if (e.getName().equals(name)) {
+                xs[idx[0]] = e.getX();
+                ys[idx[0]] = e.getY();
+                idx[0] = idx[0] + 1;
             }
-            return Integer.compare(a.getY(), b.getY());
         });
 
+        // 3) Deterministic order: lexicographic by (x, then y) using insertion sort
+        for (int i = 1; i < n; i++) {
+            int kx = xs[i];
+            int ky = ys[i];
+            int j = i - 1;
+            while (j >= 0) {
+                // compare (kx,ky) < (xs[j],ys[j]) ?
+                boolean less = (kx < xs[j]) || (kx == xs[j] && ky < ys[j]);
+                if (!less) break;
+                xs[j + 1] = xs[j];
+                ys[j + 1] = ys[j];
+                j--;
+            }
+            xs[j + 1] = kx;
+            ys[j + 1] = ky;
+        }
+
+        // 4) Delete each coord; remove exact triple from BST; build output
         StringBuilder sb = new StringBuilder();
-        for (City m : matches) {
-            // Remove from KDTree by exact coord.
-            KDTree.DeleteOutcome out = byCoord.delete(m.getX(), m.getY());
+        for (int i = 0; i < n; i++) {
+            KDTree.DeleteOutcome out = byCoord.delete(xs[i], ys[i]);
             if (out.entry != null) {
-                // Remove exact triple from BST using your existing predicate.
                 byName.removeMatching(
-                    new City(out.entry.getName(), out.entry.getX(),
-                        out.entry.getY()),
+                    new City(out.entry.getName(), out.entry.getX(), out.entry.getY()),
                     c -> c.getX() == out.entry.getX()
-                        && c.getY() == out.entry.getY()
-                        && c.getName().equals(out.entry.getName())
+                      && c.getY() == out.entry.getY()
+                      && c.getName().equals(out.entry.getName())
                 );
                 sb.append(out.entry.getName()).append(" (")
                   .append(out.entry.getX()).append(", ")
-                  .append(out.entry.getY()).append(")").append("\n");
+                  .append(out.entry.getY()).append(")\n");
             }
         }
         return sb.toString();
     }
+
 
 
     /** Name at coordinate or empty string. */
