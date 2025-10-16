@@ -1,7 +1,7 @@
 import student.TestCase;
 
 /**
- * Tests for {@link KDTree}. The suite covers insertion rules, traversal
+ * Tests for KDTree. The suite covers insertion rules, traversal
  * levels, exact find, deletion behavior, and range search pruning/
  * arithmetic boundaries.
  *
