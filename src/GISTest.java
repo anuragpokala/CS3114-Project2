@@ -1,5 +1,4 @@
 import student.TestCase;
-import java.util.ArrayList;
 
 /**
  * Tests GIS Interface Class against the current GISDB output format.
@@ -125,6 +124,7 @@ public class GISTest extends TestCase {
         }
         return new Object[] { lvl, name, x, y };
     }
+    
 
     // ------------------------------- basics -------------------------------
 
@@ -407,14 +407,21 @@ public class GISTest extends TestCase {
 
         String out = db.delete("Dup");
         String[] lines = out.split("\\R");
-        ArrayList<String> kept = new ArrayList<>();
-        for (String s : lines) if (!s.isEmpty()) kept.add(s);
 
-        assertEquals(4, kept.size());
-        assertEquals("Dup (10, 60)", kept.get(0));
-        assertEquals("Dup (30, 60)", kept.get(1));
-        assertEquals("Dup (70, 40)", kept.get(2));
-        assertEquals("Dup (80, 40)", kept.get(3));
+        // collect non-empty lines without ArrayList
+        String[] kept = new String[lines.length];
+        int k = 0;
+        for (int i = 0; i < lines.length; i++) {
+            if (lines[i] != null && !lines[i].isEmpty()) {
+                kept[k++] = lines[i];
+            }
+        }
+
+        assertEquals(4, k);
+        assertEquals("Dup (10, 60)", kept[0]);
+        assertEquals("Dup (30, 60)", kept[1]);
+        assertEquals("Dup (70, 40)", kept[2]);
+        assertEquals("Dup (80, 40)", kept[3]);
 
         assertEquals("", db.info("Dup"));
         String bst = db.print();
@@ -444,14 +451,21 @@ public class GISTest extends TestCase {
 
         String out = db.delete("Dup");
         String[] lines = out.split("\\R");
-        ArrayList<String> kept = new ArrayList<>();
-        for (String s : lines) if (!s.isEmpty()) kept.add(s);
 
-        assertEquals(4, kept.size());
-        assertEquals("Dup (10, 55)", kept.get(0));
-        assertEquals("Dup (30, 65)", kept.get(1));
-        assertEquals("Dup (70, 40)", kept.get(2));
-        assertEquals("Dup (80, 40)", kept.get(3));
+        // collect non-empty lines without ArrayList
+        String[] kept = new String[lines.length];
+        int k = 0;
+        for (int i = 0; i < lines.length; i++) {
+            if (lines[i] != null && !lines[i].isEmpty()) {
+                kept[k++] = lines[i];
+            }
+        }
+
+        assertEquals(4, k);
+        assertEquals("Dup (10, 55)", kept[0]);
+        assertEquals("Dup (30, 65)", kept[1]);
+        assertEquals("Dup (70, 40)", kept[2]);
+        assertEquals("Dup (80, 40)", kept[3]);
 
         assertEquals("", db.info("Dup"));
         assertEquals("Keep", db.info(20, 65));
@@ -462,6 +476,7 @@ public class GISTest extends TestCase {
         assertTrue(bst.contains("Keep"));
         assertFalse(bst.contains("Dup"));
     }
+
     
     /**
      * After deleting all "Dup" by name, BST print must contain no "Dup"
