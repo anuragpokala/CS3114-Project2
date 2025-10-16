@@ -3,17 +3,6 @@ import student.TestCase;
 /**
  * Tests GIS Interface Class against the current GISDB output format.
  *
- * Expected indent format from GISDB:
- *   "<level><NO extra gap><2*level spaces><payload>"
- * Examples:
- *   level 0: "0M ..." or "0Boston (x, y)"
- *   level 1: "1␠␠A ..." (two spaces after the '1')
- *   level 2: "2␠␠␠␠B ..." (four spaces after the '2')
- *
- * This suite avoids spec-mismatch with the reference by:
- *   - Verifying exact spacing your GISDB prints (no extra gap after the level)
- *   - Being tolerant of either "" or NullPointerException on delete(null)
- *
  * @author Parth Mehta (pmehta24)
  * @author Anurag Pokala (anuragp34)
  * @version 2025-10-06
@@ -52,14 +41,20 @@ public class GISTest extends TestCase {
      */
     private static boolean hasExactIndentNoGap(String line, int level) {
         String lvlStr = Integer.toString(level);
-        if (!line.startsWith(lvlStr)) return false;
+
+        if (!line.startsWith(lvlStr)) {
+            return false;
+        }
+
         int pos = lvlStr.length();
         int need = 2 * level;
+
         for (int i = 0; i < need; i++) {
             if (pos + i >= line.length() || line.charAt(pos + i) != ' ') {
                 return false;
             }
         }
+
         int next = pos + need;
         return next < line.length() && line.charAt(next) != ' ';
     }
@@ -67,39 +62,62 @@ public class GISTest extends TestCase {
     /** Returns the first non-empty line that starts with the given level. */
     private static String firstLineForLevel(String listing, int level) {
         String want = Integer.toString(level);
+
         for (String ln : listing.split("\\R")) {
-            if (!ln.isEmpty() && ln.startsWith(want)) return ln;
+            if (!ln.isEmpty() && ln.startsWith(want)) {
+                return ln;
+            }
         }
+
         return "";
     }
+
 
     /**
      * Parse a debug/print line into {level, name, x, y}.
      * Accepts either "0A 8 9" or "0A (8, 9)" (and tolerates one extra gap after level).
      */
     private static Object[] parseLine(String line) {
-        int i = 0, lvl = 0;
+        int i = 0;
+        int lvl = 0;
         boolean any = false;
+
         while (i < line.length() && Character.isDigit(line.charAt(i))) {
             any = true;
             lvl = 10 * lvl + (line.charAt(i) - '0');
             i++;
         }
-        if (!any) return new Object[] { -1, "", null, null };
-        // optional single gap then optional indent spaces
-        if (i < line.length() && line.charAt(i) == ' ') i++;
-        while (i < line.length() && line.charAt(i) == ' ') i++;
 
-        // name
+        if (!any) {
+            return new Object[] { -1, "", null, null };
+        }
+
+        // Optional single gap then optional indent spaces
+        if (i < line.length() && line.charAt(i) == ' ') {
+            i++;
+        }
+
+        while (i < line.length() && line.charAt(i) == ' ') {
+            i++;
+        }
+
+        // Name
         int j = i;
-        while (j < line.length() && line.charAt(j) != ' ' && line.charAt(j) != '(') j++;
+        while (j < line.length() && line.charAt(j) != ' ' && line.charAt(j) != '(') {
+            j++;
+        }
+
         String name = line.substring(i, j);
 
-        // skip spaces
+        // Skip spaces
         i = j;
-        while (i < line.length() && line.charAt(i) == ' ') i++;
+        while (i < line.length() && line.charAt(i) == ' ') {
+            i++;
+        }
 
-        Integer x = null, y = null;
+        Integer x = null;
+        Integer y = null;
+
         if (i < line.length() && line.charAt(i) == '(') {
             int k = line.indexOf(')', i + 1);
             if (k > 0) {
@@ -109,21 +127,29 @@ public class GISTest extends TestCase {
                     try {
                         x = Integer.valueOf(parts[0].trim());
                         y = Integer.valueOf(parts[1].trim());
-                    } catch (NumberFormatException ignore) { }
+                    } 
+                    catch (NumberFormatException ignore) {
+                        // Ignored
+                    }
                 }
             }
-        }
-        else {
+        } 
+        else 
+        {
             int sp = line.indexOf(' ', i);
             if (sp > 0 && sp + 1 < line.length()) {
                 try {
                     x = Integer.valueOf(line.substring(i, sp).trim());
                     y = Integer.valueOf(line.substring(sp + 1).trim());
-                } catch (NumberFormatException ignore) { }
+                } 
+                catch (NumberFormatException ignore) {
+                }
             }
         }
+
         return new Object[] { lvl, name, x, y };
     }
+
     
 
     // ------------------------------- basics -------------------------------
@@ -160,20 +186,31 @@ public class GISTest extends TestCase {
         db.insert("B", 20, 20);
 
         String out = db.print();
-        boolean ok0 = false, ok1 = false, ok2 = false;
+        boolean ok0 = false;
+        boolean ok1 = false;
+        boolean ok2 = false;
 
         for (String ln : out.split("\\R")) {
             int lvl = leadingLevel(ln);
-            if (lvl == 0) ok0 |= hasExactIndentNoGap(ln, 0);
-            if (lvl == 1) ok1 |= hasExactIndentNoGap(ln, 1);
-            if (lvl == 2) ok2 |= hasExactIndentNoGap(ln, 2);
+            if (lvl == 0) {
+                ok0 |= hasExactIndentNoGap(ln, 0);
+            }
+
+            if (lvl == 1) {
+                ok1 |= hasExactIndentNoGap(ln, 1);
+            }
+
+            if (lvl == 2) {
+                ok2 |= hasExactIndentNoGap(ln, 2);
+            }
+
         }
         assertTrue(ok0);
         assertTrue(ok1);
         assertTrue(ok2);
     }
 
-    /** debug(): verifies indent: level 0 has no gap, level 1 has two spaces, level 2 has four spaces. */
+    /** debug(): verifies indent*/
     public void testDebugIndentationLevels() {
         db.clear();
         db.insert("M", 50, 50);
@@ -182,14 +219,26 @@ public class GISTest extends TestCase {
         db.insert("B", 20, 55);
 
         String out = db.debug();
-        boolean ok0 = false, ok1 = false, ok2 = false;
+        boolean ok0 = false;
+        boolean ok1 = false;
+        boolean ok2 = false;
 
         for (String ln : out.split("\\R")) {
             int lvl = leadingLevel(ln);
-            if (lvl == 0) ok0 |= hasExactIndentNoGap(ln, 0);
-            if (lvl == 1) ok1 |= hasExactIndentNoGap(ln, 1);
-            if (lvl == 2) ok2 |= hasExactIndentNoGap(ln, 2);
+
+            if (lvl == 0) {
+                ok0 |= hasExactIndentNoGap(ln, 0);
+            }
+
+            if (lvl == 1) {
+                ok1 |= hasExactIndentNoGap(ln, 1);
+            }
+
+            if (lvl == 2) {
+                ok2 |= hasExactIndentNoGap(ln, 2);
+            }
         }
+
         assertTrue(ok0);
         assertTrue(ok1);
         assertTrue(ok2);
@@ -230,8 +279,15 @@ public class GISTest extends TestCase {
         assertFalse(res.contains("Gamma"));
 
         int nonEmpty = 0;
-        for (String s : res.split("\\R")) if (!s.isEmpty()) nonEmpty++;
+
+        for (String s : res.split("\\R")) {
+            if (!s.isEmpty()) {
+                nonEmpty++;
+            }
+        }
+
         assertEquals(3, nonEmpty);
+
     }
 
     // --------------------------- delete (x, y) ---------------------------
@@ -313,7 +369,8 @@ public class GISTest extends TestCase {
             String result = db.delete((String) null);
             assertEquals("", result);
             assertEquals("City", db.info(10, 10));
-        } catch (NullPointerException ok) {
+        } 
+        catch (NullPointerException ok) {
             assertTrue(true);
         }
     }
@@ -504,18 +561,34 @@ public class GISTest extends TestCase {
         assertTrue(bst.contains("KeepC"));
 
         int lines = 0;
-        for (String ln : bst.split("\\R")) if (!ln.isEmpty()) lines++;
+
+        for (String ln : bst.split("\\R")) {
+            if (!ln.isEmpty()) {
+                lines++;
+            }
+        }
+
         assertEquals(3, lines);
 
         boolean sawLvl0 = false;
+
         for (String ln : bst.split("\\R")) {
-            if (ln.isEmpty()) continue;
+            if (ln.isEmpty()) {
+                continue;
+            }
+
             int lvl = leadingLevel(ln);
             assertTrue("line should start with a numeric level", lvl >= 0);
-            assertTrue("bad indent at level " + lvl + ": [" + ln + "]",
-                       hasExactIndentNoGap(ln, lvl));
-            if (lvl == 0) sawLvl0 = true;
+            assertTrue(
+                "bad indent at level " + lvl + ": [" + ln + "]",
+                hasExactIndentNoGap(ln, lvl)
+            );
+
+            if (lvl == 0) {
+                sawLvl0 = true;
+            }
         }
+
         assertTrue(sawLvl0);
         assertEquals("", db.info("Dup"));
         assertEquals("KeepA", db.info(10, 10));
@@ -535,8 +608,15 @@ public class GISTest extends TestCase {
 
         String out = db.delete("Dup");
         int count = 0;
-        for (String s : out.split("\\R")) if (s.contains("Dup")) count++;
+
+        for (String s : out.split("\\R")) {
+            if (s.contains("Dup")) {
+                count++;
+            }
+        }
+
         assertEquals(5, count);
+
 
         assertEquals("", db.print());
         assertEquals("", db.debug());
@@ -566,19 +646,34 @@ public class GISTest extends TestCase {
         String e3 = "Dup (70, 40)";
         String e4 = "Dup (80, 40)";
 
-        boolean f0 = false, f1 = false, f2 = false, f3 = false, f4 = false;
+        boolean f0 = false;
+        boolean f1 = false;
+        boolean f2 = false;
+        boolean f3 = false;
+        boolean f4 = false;
+
         int countDup = 0;
 
         for (int i = 0; i < lines.length; i++) {
             String s = lines[i];
+
             if (s != null && !s.isEmpty() && s.startsWith("Dup ")) {
                 countDup++;
-                if (s.equals(e0)) f0 = true;
-                else if (s.equals(e1)) f1 = true;
-                else if (s.equals(e2)) f2 = true;
-                else if (s.equals(e3)) f3 = true;
-                else if (s.equals(e4)) f4 = true;
+
+                if (s.equals(e0)) {
+                    f0 = true;
+                } else if (s.equals(e1)) {
+                    f1 = true;
+                } else if (s.equals(e2)) {
+                    f2 = true;
+                } else if (s.equals(e3)) {
+                    f3 = true;
+                } else if (s.equals(e4)) {
+                    f4 = true;
+                }
             }
+        
+
         }
 
         assertEquals("Wrong number of deleted lines", 5, countDup);
@@ -620,8 +715,7 @@ public class GISTest extends TestCase {
             String s = raw[i];
             if (s != null && !s.isEmpty() && s.startsWith("Dup ")) {
                 dupLines++;
-                // Match "Dup (-?\d+, -?\d+)"
-                // (No need for Pattern; simple checks are enough)
+
                 boolean ok = s.matches("Dup \\(-?\\d+, -?\\d+\\)");
                 assertTrue("Bad format: " + s, ok);
             }
@@ -650,9 +744,17 @@ public class GISTest extends TestCase {
 
         String out = db.delete("Dup");
         String[] lines = out.split("\\R");
+
         int nonEmpty = 0;
-        for (String s : lines) if (!s.isEmpty()) nonEmpty++;
+
+        for (String s : lines) {
+            if (!s.isEmpty()) {
+                nonEmpty++;
+            }
+        }
+
         assertEquals(2, nonEmpty);
+
 
         assertEquals("dup", db.info(45, 45));
         assertEquals("", db.info("Dup"));
@@ -687,12 +789,22 @@ public class GISTest extends TestCase {
  // Helpers scoped to this section to avoid collisions with earlier ones.
 
  /** Count non-empty lines in a multi-line string. */
- private static int kdCountLines(String s) {
-     if (s == null || s.isEmpty()) return 0;
-     int n = 0;
-     for (String ln : s.split("\\R")) if (!ln.isEmpty()) n++;
-     return n;
- }
+    private static int kdCountLines(String s) {
+        if (s == null || s.isEmpty()) {
+            return 0;
+        }
+
+        int n = 0;
+
+        for (String ln : s.split("\\R")) {
+            if (!ln.isEmpty()) {
+                n++;
+            }
+        }
+
+        return n;
+    }
+
 
  /** Match "name (x, y)" in search/info listings. */
  private static boolean kdHasParenEntry(String listing, String name, int x, int y) {
@@ -701,14 +813,10 @@ public class GISTest extends TestCase {
      return listing.contains(A) || listing.contains(B);
  }
 
- /** Return the first line of debug/print that starts with the given level digit. */
- private static String kdFirstLineStartingWith(String listing, String levelDigit) {
-     for (String ln : listing.split("\\R")) if (ln.startsWith(levelDigit)) return ln;
-     return "";
- }
-
  /** Parse delete(x,y) output "visited\nname". */
- private static String[] kdSplitDelete(String out) { return out.split("\\R"); }
+ private static String[] kdSplitDelete(String out) {
+     return out.split("\\R");
+ }
 
  // ------------------------ Basics / Insert rules ------------------------
 
@@ -816,7 +924,10 @@ public class GISTest extends TestCase {
 
      boolean foundL = false;
      for (String ln : dbg.split("\\R")) {
-         if (ln.contains(" L ")) { foundL = true; break; }
+         if (ln.contains(" L ")) {
+             foundL = true;
+             break;
+         }
      }
      assertTrue("Expected 'L' present at level 1 after rewire; debug was:\n" + dbg, foundL);
  }
@@ -919,7 +1030,7 @@ public void testRefTiesMultiLevelViaGis() {
   // depth 0: split on X, tie goes right
   assertTrue(db.insert("R", 10, 10));
   assertTrue(db.insert("TX0", 10, 5));  // tie on X at root -> right
-  // go left once, then depth 1 split on Y, tie goes right under that left child
+  // go left once, then depth 1 split on Y, tie goes under that left child
   assertTrue(db.insert("L", 5, 10));
   assertTrue(db.insert("TY1", 4, 10));  // tie on Y at depth 1 -> right
   String debug = db.debug();
@@ -927,9 +1038,15 @@ public void testRefTiesMultiLevelViaGis() {
   // Check TX0 appears at level 1 and TY1 appears at level 2
   boolean okTX0 = false, okTY1 = false;
   for (String ln : debug.split("\\R")) {
-      if (ln.contains("TX0")) okTX0 = (leadingLevel(ln) == 1);
-      if (ln.contains("TY1")) okTY1 = (leadingLevel(ln) == 2);
+      if (ln.contains("TX0")) {
+          okTX0 = (leadingLevel(ln) == 1);
+      }
+
+      if (ln.contains("TY1")) {
+          okTY1 = (leadingLevel(ln) == 2);
+      }
   }
+
   assertTrue(okTX0);
   assertTrue(okTY1);
 }
@@ -949,7 +1066,13 @@ public void testRefGoodDupsInfoListsAllAndOnly() {
   assertFalse(res.contains("Keep"));
 
   // Exactly 3 non-empty lines for the three Dups
-  int n = 0; for (String s : res.split("\\R")) if (!s.isEmpty()) n++;
+  int n = 0;
+
+  for (String s : res.split("\\R")) {
+      if (!s.isEmpty()) {
+          n++;
+      }
+  }
   assertEquals(3, n);
 }
 
@@ -961,7 +1084,13 @@ public void testRefBadDupsRejectSameCoordsDifferentNames() {
   // verify only A exists at that coord and only one line for name A
   assertEquals("A", db.info(5, 5));
   String listA = db.info("A");
-  int n = 0; for (String s : listA.split("\\R")) if (!s.isEmpty()) n++;
+  int n = 0;
+
+  for (String s : listA.split("\\R")) {
+      if (!s.isEmpty()) {
+          n++;
+      }
+  }
   assertEquals(1, n);
 }
 
@@ -976,19 +1105,36 @@ public void testRefDeleteFiveBSTStyle() {
   db.insert("Dup",   35, 35);
 
   String out = db.delete("Dup");
-  // Exactly 3 Dup lines, no blanks
-  int d = 0; for (String s : out.split("\\R")) if (s.startsWith("Dup ")) d++;
-  assertEquals(3, d);
 
-  // BST print should contain only the two "Keep*" entries; no "Dup"
-  String bst = db.print();
-  assertTrue(bst.contains("Keep1"));
-  assertTrue(bst.contains("Keep2"));
-  assertFalse(bst.contains("Dup"));
+//Exactly 3 Dup lines, no blanks
+int d = 0;
 
-  // Two non-empty lines remain in print (the two keeps)
-  int lines = 0; for (String ln : bst.split("\\R")) if (!ln.isEmpty()) lines++;
-  assertEquals(2, lines);
+for (String s : out.split("\\R")) {
+   if (s.startsWith("Dup ")) {
+       d++;
+   }
+}
+
+assertEquals(3, d);
+
+//BST print should contain only the two "Keep*" entries; no "Dup"
+String bst = db.print();
+
+assertTrue(bst.contains("Keep1"));
+assertTrue(bst.contains("Keep2"));
+assertFalse(bst.contains("Dup"));
+
+//Two non-empty lines remain in print (the two keeps)
+int lines = 0;
+
+for (String ln : bst.split("\\R")) {
+   if (!ln.isEmpty()) {
+       lines++;
+   }
+}
+
+assertEquals(2, lines);
+
 }
 
 /** "Search five easy": a small circle should include exactly the intended subset; last line numeric. */
@@ -1017,7 +1163,9 @@ public void testRefRemoveStressKDLike() {
   db.clear();
   // Seed
   int[][] pts = { {50,50},{25,60},{75,40},{10,55},{30,65},{60,70},{80,30} };
-  for (int[] p : pts) assertTrue(db.insert("N", p[0], p[1]));
+  for (int[] p : pts) {
+      assertTrue(db.insert("N", p[0], p[1]));
+  }
   // Delete three coordinates that will likely hit root or internal nodes
   assertTrue(db.delete(50, 50).contains("N"));
   assertTrue(db.delete(60, 70).contains("N"));
@@ -1025,14 +1173,25 @@ public void testRefRemoveStressKDLike() {
 
   // No duplicates, remaining count matches print lines
   String bst = db.print();
-  int remaining = 0; for (String ln : bst.split("\\R")) if (!ln.isEmpty()) remaining++;
+  int remaining = 0;
+  for (String ln : bst.split("\\R")) {
+      if (!ln.isEmpty()) {
+          remaining++;
+      }
+  }
   // We inserted 7, removed 3 => expect 4 remain
   assertEquals(4, remaining);
 
   // debug should still start with a level 0 root line
   String rootLine = "";
-  for (String ln : db.debug().split("\\R")) { if (leadingLevel(ln) == 0) { rootLine = ln; break; } }
+  for (String ln : db.debug().split("\\R")) {
+      if (leadingLevel(ln) == 0) {
+          rootLine = ln;
+          break;
+      }
+  }
   assertTrue(rootLine.length() > 0);
+
 }
 
 /** search on EMPTY DB should return only a visit-count line (numeric), not "" */
@@ -1062,7 +1221,11 @@ public void testDeleteByNameNoTrailingBlankLines() {
     String out = db.delete("T");
     String[] raw = out.split("\\R",-1); // keep trailing empty if any
     int nonEmpty = 0;
-    for (String s : raw) if (!s.isEmpty()) nonEmpty++;
+    for (String s : raw) {
+        if (!s.isEmpty()) {
+            nonEmpty++;
+        }
+    }
     assertEquals(2, nonEmpty);      // exactly those two T lines
     assertFalse("No trailing blank line expected", out.endsWith("\n\n"));
     assertEquals("", db.info("T")); // all T removed
@@ -1088,7 +1251,8 @@ public void testInsertBoundsAndNullValidation() {
  // Sanity: only the two valid inserts should be present
  String bst = db.print();
  assertTrue(bst.contains("B0 (0, 0)"));
- assertTrue(bst.contains("Bmax (" + GISDB.MAXCOORD + ", " + GISDB.MAXCOORD + ")"));
+ assertTrue(bst.contains("Bmax (" + 
+ GISDB.MAXCOORD + ", " + GISDB.MAXCOORD + ")"));
  assertEquals("", db.info("negX"));
  assertEquals("", db.info("negY"));
  assertEquals("", db.info("xTooBig"));
@@ -1105,7 +1269,11 @@ public void testInsertDuplicateDoesNotPolluteBST() {
  // If the guard were mutated to always-insert into BST, we'd see 2 lines for x=10,y=10
  String byName = db.print();
  int count = 0;
- for (String ln : byName.split("\\R")) if (ln.contains("(10, 10)")) count++;
+ for (String ln : byName.split("\\R")) {
+     if (ln.contains("(10, 10)")) {
+         count++;
+     }
+ }
  assertEquals(1, count);                 // only one record at (10,10)
  assertEquals("A", db.info(10, 10));     // name stayed original
 }
@@ -1124,7 +1292,11 @@ public void testDeleteByCoordSameNameOnlyThatCoordRemoved() {
 
  // BST should still have exactly one "N" line now
  int lines = 0;
- for (String ln : db.info("N").split("\\R")) if (!ln.isEmpty()) lines++;
+ for (String ln : db.info("N").split("\\R")) {
+     if (!ln.isEmpty()) {
+         lines++;
+     }
+ }
  assertEquals(1, lines);
 }
 
@@ -1256,7 +1428,7 @@ public void testDeleteByCoordRemovesOnlyExactTripleDespiteNearMisses() {
     assertTrue(db.insert("T", 1, 1));  // exact target
     assertTrue(db.insert("T", 1, 2));  // same name, different Y
     assertTrue(db.insert("T", 2, 1));  // same name, different X
-    assertTrue(db.insert("U", 9, 9));  // different name at different coords (can't duplicate coords)
+    assertTrue(db.insert("U", 9, 9));  
 
     // Delete the exact coordinate (1,1); should remove only T(1,1)
     String out = db.delete(1, 1);
@@ -1277,7 +1449,8 @@ public void testDeleteByCoordRemovesOnlyExactTripleDespiteNearMisses() {
 }
 
 /**
- * A delete miss must NOT affect the KD size. If size were decremented on a miss
+ * A delete miss must NOT affect the KD size. If size were 
+ * decremented on a miss
  * (mutant at KDTree:259), a follow-up delete would be blocked by
  * GISDB's byCoord.isEmpty() guard and incorrectly return "".
  */
@@ -1294,7 +1467,8 @@ public void testKdDeleteMissDoesNotFalselyEmptyTree() {
     String out = db.delete(1, 1);
     String[] lines = out.split("\\R");
     assertEquals(2, lines.length);
-    assertTrue("first line should be the visit count", lines[0].matches("\\d+"));
+    assertTrue("first line should be the visit count", 
+        lines[0].matches("\\d+"));
     assertEquals("A", lines[1]);
 
     // Tree is empty now; both views are empty.
@@ -1342,23 +1516,4 @@ public void testKdDeleteAtDepthOneUsesYMinFromRightSubtree() {
     assertTrue("Expected depth-1 replacement with coords (4,5). Debug was:\n" + debug,
                sawReplacement);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 }
