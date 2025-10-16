@@ -1,7 +1,6 @@
 /**
- * Immutable city record used by both BST (name order) and KDTree (coordinate order).
- *
- * Ordering for BST is by city name (lexicographic).
+ * Immutable city record used by BST & KDTree
+
  * 
  * @author Parth Mehta (pmehta24)
  * @author Anurag Pokala (anuragp34)
@@ -12,23 +11,45 @@ public final class City implements Comparable<City> {
     private final int x;
     private final int y;
 
-    public City(String name, int x, int y) {
+    /**
+     * Creates a new City object with the specified name and coordinates
+     *
+     * @param name the name of the city
+     * @param x    the x-coordinate of the city
+     * @param y    the y-coordinate of the city
+     */
+    public City(String name, int x, int y) 
+    {
         this.name = name;
         this.x = x;
         this.y = y;
     }
 
-    /** City name (key for BST ordering). */
-    public String getName() {
+    /**
+     * Returns the name of the city
+     *
+     * @return the name of the city
+     */
+    public String getName() 
+    {
         return name;
     }
 
-    /** X coordinate. */
+
+    /**
+     * Returns the x coordinate
+     *
+     * @return x-coord
+     */
     public int getX() {
         return x;
     }
 
-    /** Y coordinate. */
+    /**
+     * Returns y coord
+     *
+     * @return y-coord
+     */
     public int getY() {
         return y;
     }
